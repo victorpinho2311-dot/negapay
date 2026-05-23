@@ -58,7 +58,7 @@ const PDFParser = (() => {
   //  PARSER CSV
   // ════════════════════════════════════════════════════════
   function processarCSV(texto, banco, mesAno) {
-    const linhas = texto.split(/\r?\n/);
+    const linhas = texto.split(/\r\n|\r|\n/);
     const finaisPrimo = banco.cartoesPrimo.map(c => c.final);
 
     const resultado = {
