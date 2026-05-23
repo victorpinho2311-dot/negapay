@@ -44,9 +44,9 @@ const Admin = (() => {
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
           <div class="upload-icon">📄</div>
           <div class="upload-title">Clique para selecionar a fatura</div>
-          <div class="upload-sub">PDF da fatura completa do cartão</div>
+          <div class="upload-sub">CSV da fatura completa do cartão</div>
         </div>
-        <input type="file" id="file-input" accept=".pdf,.csv" style="display:none" onchange="Admin._onFileSelect(event)">
+        <input type="file" id="file-input" accept=".csv" style="display:none" onchange="Admin._onFileSelect(event)">
         <div class="progress-bar" id="progress-bar" style="display:none">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
@@ -61,8 +61,8 @@ const Admin = (() => {
       e.preventDefault();
       zone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".csv"))) processarPDF(file);
-      else UI.toast('Selecione um arquivo PDF válido', 'error');
+      if (file && (file.name.toLowerCase().endsWith(".csv"))) processarPDF(file);
+      else UI.toast('Selecione um arquivo CSV válido', 'error');
     });
   }
 
@@ -141,7 +141,7 @@ const Admin = (() => {
       </div>
       ${resultado.cartoes.map(cartao => renderCartaoPreview(cartao)).join('')}
       <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total a pagar pelo Getlio</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total a pagar pelo Getulio</span>
         <span style="font-size:1.4rem;font-weight:900;color:var(--text-primary)">${formatarMoeda(resultado.totalGeral)}</span>
       </div>
       <div style="display:flex;gap:0.75rem;margin-top:1rem">
@@ -193,7 +193,7 @@ const Admin = (() => {
       const res = await API.post({ acao: 'salvarFatura', fatura: faturaProcessada });
 
       if (res.ok) {
-        UI.toast('Fatura publicada! O Getlio já pode visualizar. ✅', 'success');
+        UI.toast('Fatura publicada! O Getulio já pode visualizar. ✅', 'success');
         _cancelarPreview();
         await renderHistorico();
       } else {
@@ -287,7 +287,7 @@ const Admin = (() => {
     UI.toast('Carregando fatura...', '');
     const res = await API.post({ acao: 'getFatura', faturaId });
     if (res.ok) {
-      const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === res.fatura.banco) || NEGAPAY_CONFIG.bancos[0];
+      const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === (res.fatura.banco || 'bradesco')) || NEGAPAY_CONFIG.bancos[0];
       faturaProcessada = res.fatura;
       renderPreviewReadonly(res.fatura, banco);
       document.getElementById('preview-section').style.display = 'block';
@@ -314,7 +314,7 @@ const Admin = (() => {
       </div>
       ${(resultado.cartoes || []).map(cartao => renderCartaoPreview(cartao)).join('')}
       <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total pago pelo Getlio</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total pago pelo Getulio</span>
         <span style="font-size:1.4rem;font-weight:900;color:var(--text-primary)">${formatarMoeda(resultado.totalGeral)}</span>
       </div>
       <div style="margin-top:1rem">
@@ -372,9 +372,14 @@ const Admin = (() => {
 
   function parseVenc(vencimento) {
     if (!vencimento) return new Date();
-    if (vencimento.includes('T') || vencimento.match(/^[0-9]{4}-/)) return new Date(vencimento);
-    const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date(a, m - 1, d);
+    if (vencimento.includes('T') || /^\d{4}-/.test(vencimento)) return new Date(vencimento);
+    // Formato DD/MM/YYYY
+    const partes = vencimento.split('/').map(Number);
+    if (partes.length === 3) {
+      const [d, m, a] = partes;
+      return new Date(a, m - 1, d);
+    }
+    return new Date(vencimento);
   }
 
   function statusBadge(vencimento) {
