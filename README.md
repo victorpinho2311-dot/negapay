@@ -1,6 +1,6 @@
 # NegaPay 💳
 
-Controle de cartões adicionais — para uso pessoal entre Pinho (admin) e Getlio (primo).
+Controle de cartões adicionais — para uso pessoal entre Pinho (admin) e Getulio (primo).
 
 ---
 
@@ -23,7 +23,7 @@ NegaPay/
 │   ├── auth.js             ← Autenticação e sessão
 │   ├── pdf-parser.js       ← Parser da fatura Bradesco
 │   ├── admin.js            ← Painel do Pinho
-│   └── primo.js            ← Painel do Getlio
+│   └── primo.js            ← Painel do Getulio
 └── appscript/
     └── Code.gs             ← Backend Google Apps Script
 ```
@@ -54,7 +54,7 @@ Coloque na pasta `assets/`:
 
 Antes de publicar, edite a função `setupSheet` em `Code.gs` e mude:
 - `'negapay@admin'` → senha do Pinho
-- `'negapay@primo'` → senha do Getlio
+- `'negapay@primo'` → senha do Getulio
 
 Ou mude diretamente na planilha criada (aba `usuarios`, coluna `senhaHash` — use a função `hashSenha()` para gerar o hash correto).
 
@@ -87,11 +87,11 @@ Ou mude diretamente na planilha criada (aba `usuarios`, coluna `senhaHash` — u
 ### Pinho (admin)
 1. Abre o app → faz login com suas credenciais
 2. Seleciona o banco (Bradesco por enquanto)
-3. Faz upload do PDF da fatura completa
-4. Revisa os lançamentos dos cartões do Getlio
+3. Faz upload do CSV da fatura completa
+4. Revisa os lançamentos dos cartões do Getulio
 5. Clica **Publicar fatura**
 
-### Getlio (primo)
+### Getulio (primo)
 1. Abre o link ou o PWA no iPhone
 2. Vê o valor total a pagar e a data de vencimento
 3. Clica **+ Adicionar** para colocar lembrete no Calendário
@@ -118,7 +118,7 @@ bancos: [
     padraoLancamento: /...padrão de linha.../i,
     padraoTotal: /...padrão do total.../i,
     cartoesPrimo: [
-      { final: 'ZZZZ', apelido: 'Cartão Nubank', titular: 'Getlio R D S Farias' }
+      { final: 'ZZZZ', apelido: 'Cartão Nubank', titular: 'Getulio R D S Farias' }
     ]
   }
 ]
