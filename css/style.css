@@ -375,6 +375,7 @@ a { color: inherit; text-decoration: none; }
 .badge-pago    { background: var(--success-bg); color: var(--success); }
 .badge-aberto  { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); }
 .badge-vencido { background: var(--danger-bg); color: var(--danger); }
+.badge-aberto-lista { background: #EFF6FF; color: #1D4ED8; }
 
 /* ── Cartão visual do banco ────────────────────────────────── */
 .bank-card-visual {

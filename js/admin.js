@@ -289,12 +289,38 @@ const Admin = (() => {
     if (res.ok) {
       const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === res.fatura.banco) || NEGAPAY_CONFIG.bancos[0];
       faturaProcessada = res.fatura;
-      renderPreview(res.fatura, banco);
+      renderPreviewReadonly(res.fatura, banco);
       document.getElementById('preview-section').style.display = 'block';
       document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
     } else {
       UI.toast('Erro ao carregar fatura', 'error');
     }
+  }
+
+  // Preview somente leitura (fatura já publicada)
+  function renderPreviewReadonly(resultado, banco) {
+    const preview = document.getElementById('preview-section');
+    preview.innerHTML = `
+      <hr class="divider">
+      <p class="card-title" style="margin-top:0.5rem">🔍 Visualizando fatura publicada</p>
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem">
+        <img src="${banco.logoUrl}" alt="${banco.nome}" style="height:28px" onerror="this.style.display='none'">
+        <div>
+          <div style="font-size:0.9rem;font-weight:700">${banco.nome}</div>
+          <div style="font-size:0.78rem;color:var(--text-secondary)">
+            Vencimento: ${formatarVencimento(resultado.vencimento)} · Referência: ${formatarMesAno(resultado.mesAno)}
+          </div>
+        </div>
+      </div>
+      ${(resultado.cartoes || []).map(cartao => renderCartaoPreview(cartao)).join('')}
+      <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total pago pelo Getlio</span>
+        <span style="font-size:1.4rem;font-weight:900;color:var(--text-primary)">${formatarMoeda(resultado.totalGeral)}</span>
+      </div>
+      <div style="margin-top:1rem">
+        <button class="btn btn-secondary btn-full" onclick="Admin._cancelarPreview()">Fechar</button>
+      </div>
+    `;
   }
 
   // ── Helpers ──────────────────────────────────────────────
@@ -352,7 +378,7 @@ const Admin = (() => {
   }
 
   function statusBadge(vencimento) {
-    return new Date() > parseVenc(vencimento) ? 'badge-vencido' : 'badge-aberto';
+    return new Date() > parseVenc(vencimento) ? 'badge-vencido' : 'badge-aberto-lista';
   }
 
   function statusTexto(vencimento) {
