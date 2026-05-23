@@ -110,8 +110,9 @@ function salvarFatura(body) {
 
   const faturaId = 'FAT_' + mesAno.replace('/', '_') + '_' + Date.now();
 
+  // Prefixo de apóstrofo força o Sheets a tratar como texto puro
   sheetFaturas.appendRow([
-    faturaId, mesAno, vencimento, totalGeral,
+    faturaId, mesAno, converterVencimento(vencimento), totalGeral,
     false, '', new Date().toISOString()
   ]);
 
@@ -261,6 +262,13 @@ function setupSheet() {
 // ─────────────────────────────────────────
 //  UTILITÁRIOS
 // ─────────────────────────────────────────
+// Converte DD/MM/YYYY para YYYY-MM-DD para evitar conversão automática do Sheets
+function converterVencimento(venc) {
+  if (!venc || !venc.includes('/')) return venc;
+  const [d, m, a] = venc.split('/');
+  return a + '-' + m + '-' + d;
+}
+
 function getAba(nome) {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(nome);
 }

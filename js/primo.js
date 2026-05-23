@@ -348,8 +348,13 @@ const Primo = (() => {
   function parseVenc(vencimento) {
     if (!vencimento) return new Date();
     if (vencimento.includes('T') || (vencimento.length > 8 && vencimento.includes('-'))) return new Date(vencimento);
-    const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date(a, m - 1, d);
+    // Formato DD/MM/YYYY
+    const partes = vencimento.split('/').map(Number);
+    if (partes.length === 3) {
+      const [d, m, a] = partes;
+      return new Date(a, m - 1, d);
+    }
+    return new Date(vencimento);
   }
 
   function isVencido(vencimento) {

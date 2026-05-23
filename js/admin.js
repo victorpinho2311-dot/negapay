@@ -372,9 +372,14 @@ const Admin = (() => {
 
   function parseVenc(vencimento) {
     if (!vencimento) return new Date();
-    if (vencimento.includes('T') || vencimento.match(/^[0-9]{4}-/)) return new Date(vencimento);
-    const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date(a, m - 1, d);
+    if (vencimento.includes('T') || /^\d{4}-/.test(vencimento)) return new Date(vencimento);
+    // Formato DD/MM/YYYY
+    const partes = vencimento.split('/').map(Number);
+    if (partes.length === 3) {
+      const [d, m, a] = partes;
+      return new Date(a, m - 1, d);
+    }
+    return new Date(vencimento);
   }
 
   function statusBadge(vencimento) {
