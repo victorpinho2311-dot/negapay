@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#00BCD4">
+
+  <!-- PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="NegaPay">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+
+  <title>NegaPay</title>
+  <link rel="icon" href="assets/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ── Loading screen ─────────────────────────────────── -->
+  <div id="loading-screen">
+    <img src="assets/icon-192.png" alt="NegaPay" class="loading-logo">
+    <div class="loading-dots">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <!-- ── Toast container ────────────────────────────────── -->
+  <div id="toast-container"></div>
+
+  <!-- ════════════════════════════════════════════════════
+       PÁGINA: LOGIN
+  ═══════════════════════════════════════════════════════ -->
+  <div id="page-login" class="page">
+    <div class="login-card">
+      <div class="login-header">
+        <img src="assets/icon-192.png" alt="NegaPay" class="login-app-icon">
+        <h1 class="login-title">NegaPay</h1>
+        <p class="login-subtitle">Controle de cartões adicionais</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-usuario">Usuário</label>
+        <input
+          id="input-usuario"
+          type="text"
+          class="form-input"
+          placeholder="seu usuário"
+          autocomplete="username"
+          autocapitalize="none"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-senha">Senha</label>
+        <input
+          id="input-senha"
+          type="password"
+          class="form-input"
+          placeholder="••••••••"
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button class="btn-login" id="btn-login" onclick="UI.fazerLogin()">
+        Entrar
+      </button>
+
+      <p class="login-error" id="login-error"></p>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PÁGINA: ADMIN (Pinho)
+  ═══════════════════════════════════════════════════════ -->
+  <div id="page-admin" class="page">
+    <div class="app-layout">
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-brand">
+          <img src="assets/icon-192.png" alt="NegaPay" class="header-icon">
+          <span class="header-name">NegaPay</span>
+        </div>
+        <span class="header-greeting" id="header-greeting"></span>
+        <div class="header-actions">
+          <button class="btn-icon" onclick="UI.logout()" title="Sair" aria-label="Sair">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Conteúdo -->
+      <main class="app-content">
+        <div id="admin-upload"></div>
+        <div id="admin-historico"></div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PÁGINA: PRIMO (Getlio)
+  ═══════════════════════════════════════════════════════ -->
+  <div id="page-primo" class="page">
+    <div class="app-layout">
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-brand">
+          <img src="assets/icon-192.png" alt="NegaPay" class="header-icon">
+          <span class="header-name">NegaPay</span>
+        </div>
+        <span class="header-greeting" id="header-greeting"></span>
+        <div class="header-actions">
+          <button class="btn-icon" onclick="UI.logout()" title="Sair" aria-label="Sair">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Conteúdo -->
+      <main class="app-content">
+        <div id="primo-atual"></div>
+        <div id="primo-historico"></div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ── Scripts ─────────────────────────────────────────── -->
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/pdf-parser.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/primo.js"></script>
+
+  <script>
+    // ════════════════════════════════════════════════════
+    //  UI — controle de navegação, toast e inicialização
+    // ════════════════════════════════════════════════════
+    const UI = (() => {
+
+      // ── Exibe uma página, esconde as outras ────────────
+      function mostrarPagina(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+      }
+
+      // ── Login ──────────────────────────────────────────
+      async function fazerLogin() {
+        const usuario = document.getElementById('input-usuario').value.trim();
+        const senha   = document.getElementById('input-senha').value;
+        const btn     = document.getElementById('btn-login');
+        const erro    = document.getElementById('login-error');
+
+        if (!usuario || !senha) {
+          erro.textContent = 'Preencha usuário e senha.';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>';
+        erro.textContent = '';
+
+        const res = await Auth.login(usuario, senha);
+
+        if (res.ok) {
+          redirecionar(res.perfil);
+        } else {
+          erro.textContent = res.erro || 'Usuário ou senha incorretos.';
+          btn.disabled = false;
+          btn.innerHTML = 'Entrar';
+        }
+      }
+
+      // ── Redireciona conforme perfil ────────────────────
+      function redirecionar(perfil) {
+        if (perfil === 'admin') {
+          mostrarPagina('page-admin');
+          Admin.init();
+        } else {
+          mostrarPagina('page-primo');
+          Primo.init();
+        }
+      }
+
+      // ── Logout ─────────────────────────────────────────
+      function logout() {
+        Auth.logout();
+      }
+
+      // ── Toast ──────────────────────────────────────────
+      function toast(mensagem, tipo = '') {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast ' + tipo;
+        el.textContent = mensagem;
+        container.appendChild(el);
+
+        setTimeout(() => {
+          el.classList.add('removing');
+          setTimeout(() => el.remove(), 300);
+        }, 3000);
+      }
+
+      // ── Inicialização ──────────────────────────────────
+      async function init() {
+        // Ativa enter no formulário de login
+        document.getElementById('input-senha').addEventListener('keydown', e => {
+          if (e.key === 'Enter') fazerLogin();
+        });
+        document.getElementById('input-usuario').addEventListener('keydown', e => {
+          if (e.key === 'Enter') document.getElementById('input-senha').focus();
+        });
+
+        // Verifica sessão existente
+        const sessao = await Auth.validarToken();
+
+        // Esconde loading
+        const loading = document.getElementById('loading-screen');
+        loading.classList.add('fade-out');
+        setTimeout(() => loading.remove(), 400);
+
+        if (sessao) {
+          redirecionar(sessao.perfil);
+        } else {
+          mostrarPagina('page-login');
+        }
+      }
+
+      return { fazerLogin, logout, toast, init, mostrarPagina };
+
+    })();
+
+    // Inicia o app
+    document.addEventListener('DOMContentLoaded', UI.init);
+  </script>
+
+</body>
+</html>
