@@ -8,7 +8,7 @@ const NEGAPAY_CONFIG = {
 
   // URL do Apps Script publicado como Web App
   // Após publicar o Code.gs, cole a URL aqui
-  apiUrl: 'COLE_AQUI_A_URL_DO_APPS_SCRIPT',
+  apiUrl: 'COLE_AQUI_A_URL_DO_AapiUrl: 'https://script.google.com/macros/s/AKfycbyhfO7TiK9MThPhfSHkRrSBcMr1RZEaNRRN1LDj-F8hLxkwDY3Oo7dBqzo9YKHIv8vY/exec',PPS_SCRIPT',
 
   // Duração da sessão local (em dias)
   sessaoDias: 30,
