@@ -1,8 +1,7 @@
 // ============================================================
-//  NegaPay — PDF Parser v3.0
-//  Estratégia: extrai texto completo, divide em blocos por
-//  cartão usando o padrão "Final XXXX", usa total já calculado
-//  pelo Bradesco e extrai lançamentos por regex no bloco.
+//  NegaPay — PDF Parser v4.0
+//  Usa índices manuais de "Final XXXX" para dividir blocos,
+//  sem depender de regex multiline entre páginas.
 // ============================================================
 
 const PDFParser = (() => {
@@ -22,18 +21,19 @@ const PDFParser = (() => {
     });
   }
 
-  // ── Extrai texto de cada página separadamente ────────────
+  // ── Extrai texto completo (todas as páginas concatenadas) ─
   async function extrairTexto(file) {
     await carregarPDFjs();
     const buf = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-    const paginas = [];
+    let texto = '';
     for (let p = 1; p <= pdf.numPages; p++) {
       const page    = await pdf.getPage(p);
       const content = await page.getTextContent();
-      paginas.push(content.items.map(i => i.str).join(' '));
+      texto += ' ' + content.items.map(i => i.str).join(' ');
     }
-    return paginas.join('\n---PAGINA---\n');
+    // Normaliza espaços múltiplos
+    return texto.replace(/\s+/g, ' ').trim();
   }
 
   // ── Converte valor BR para número ────────────────────────
@@ -44,41 +44,34 @@ const PDFParser = (() => {
     return isNaN(n) ? null : n;
   }
 
-  // ── Meses PT ─────────────────────────────────────────────
   const MESES = {
     JAN:'01',FEV:'02',MAR:'03',ABR:'04',MAI:'05',JUN:'06',
     JUL:'07',AGO:'08',SET:'09',OUT:'10',NOV:'11',DEZ:'12'
   };
 
-  // ── Extrai lançamentos de um bloco de texto de cartão ────
+  // ── Extrai lançamentos de um bloco ───────────────────────
   function extrairLancamentos(bloco) {
     const lancamentos = [];
 
-    // Normaliza espaços
-    const texto = bloco.replace(/\s+/g, ' ').trim();
-
-    // Padrão: número dia (1-31) + mês (JAN..DEZ) + descrição + valor
-    // Ex: "11 MAI MP *58PRODUTOS -84,95"
-    // Ex: "18 ABR DL *AliExpress BR Alip ( 02/12 ) 123,81"
-    // Ex: "17 MAI RAIA202 26,89  TAUSTE SUPERMERCADOS 179,56"
-    // Estratégia: encontra todas as ocorrências de "DD MES" e
-    // divide o texto nesses pontos, processando cada fragmento
-
+    // Encontra todas as posições de data "DD MES" no bloco
     const regexData = /\b(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\b/gi;
-    const posicoes = [];
+    const posicoes  = [];
     let m;
-    while ((m = regexData.exec(texto)) !== null) {
-      posicoes.push({ index: m.index, dia: m[1], mes: m[2].toUpperCase(), end: m.index + m[0].length });
+    while ((m = regexData.exec(bloco)) !== null) {
+      posicoes.push({
+        index: m.index,
+        end:   m.index + m[0].length,
+        data:  `${m[1].padStart(2,'0')}/${MESES[m[2].toUpperCase()]}`
+      });
     }
 
     for (let i = 0; i < posicoes.length; i++) {
-      const pos   = posicoes[i];
-      const data  = `${pos.dia.padStart(2,'0')}/${MESES[pos.mes]}`;
-      const fim   = posicoes[i + 1] ? posicoes[i + 1].index : texto.length;
-      const trecho = texto.slice(pos.end, fim).trim();
+      const pos    = posicoes[i];
+      const fim    = posicoes[i + 1] ? posicoes[i + 1].index : bloco.length;
+      const trecho = bloco.slice(pos.end, fim).trim();
 
-      // Dentro do trecho, extrai pares "descrição valor"
-      // Um valor é: -?digits(,digits)(.digits)* com vírgula decimal
+      // Extrai todos os pares "descrição + valor" no trecho
+      // Valor: número com vírgula decimal, pode ter sinal negativo
       const regexLanc = /(.+?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})(?=\s|$)/g;
       let match;
       while ((match = regexLanc.exec(trecho)) !== null) {
@@ -90,7 +83,7 @@ const PDFParser = (() => {
         if (desc.length < 2) continue;
 
         lancamentos.push({
-          data,
+          data:     pos.data,
           descricao: desc,
           valor,
           tipo: valor < 0 ? 'estorno' : 'compra'
@@ -101,13 +94,14 @@ const PDFParser = (() => {
     return lancamentos;
   }
 
-  // ── Termos a ignorar ──────────────────────────────────────
   const BLOQUEIOS = [
-    'saldo anterior', 'pagto', 'pagamento', 'data lançamentos',
+    'saldo anterior', 'pagto', 'pagamento por', 'data lançamentos',
     'moeda de origem', 'valor da fatura', 'total da fatura',
-    'resumo das despesas', 'taxas mensais', 'parcelamento',
+    'resumo das despesas', 'taxas mensais', 'parcelamento de fatura',
     'crédito rotativo', 'pagamento mínimo', 'despesas locais',
-    'despesas no exterior', 'extrato em aberto'
+    'despesas no exterior', 'extrato em aberto', 'fatura anterior',
+    'melhor data', 'forma de pagamento', 'débito em conta',
+    'data de vencimento', 'total de fatura', 'cotação'
   ];
 
   function deveIgnorar(str) {
@@ -117,7 +111,7 @@ const PDFParser = (() => {
 
   function limparDesc(str) {
     return str
-      .replace(/\(\s*\d{2}\/\d{2}\s*\)/g, '') // remove ( 02/10 )
+      .replace(/\(\s*\d{2}\/\d{2}\s*\)/g, '')
       .replace(/•/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -137,31 +131,39 @@ const PDFParser = (() => {
 
     const finaisPrimo = banco.cartoesPrimo.map(c => c.final);
 
-    // Divide o texto em blocos por seção de cartão
-    // Padrão: "Final XXXX | NOME ... Valor da fatura: R$ X"
-    // Usamos split com captura para manter os delimitadores
-    const regexSecao = /Final\s+(\d{4})\s*\|\s*([^\n]+?)(?=Final\s+\d{4}|$)/gi;
+    // ── Encontra todas as ocorrências de "Final XXXX" ──────
+    const regexFinal = /Final\s+(\d{4})\s*\|\s*([\w\s]+?)(?=\s+(?:Valor|Data|Final|\d{1,2}\s+(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)))/gi;
+    const secoes = [];
+    let sm;
+    while ((sm = regexFinal.exec(texto)) !== null) {
+      secoes.push({
+        final:   sm[1],
+        titular: sm[2].trim(),
+        index:   sm.index
+      });
+    }
 
-    let match;
-    while ((match = regexSecao.exec(texto)) !== null) {
-      const final   = match[1];
-      const titular = match[2].split(/Valor da fatura|Data Lançamentos/)[0].trim();
-      const bloco   = match[0];
+    // ── Para cada seção, extrai o bloco até a próxima ──────
+    for (let i = 0; i < secoes.length; i++) {
+      const secao = secoes[i];
+      if (!finaisPrimo.includes(secao.final)) continue;
 
-      if (!finaisPrimo.includes(final)) continue;
+      const inicio = secao.index;
+      const fim    = secoes[i + 1] ? secoes[i + 1].index : texto.length;
+      const bloco  = texto.slice(inicio, fim);
 
-      // Extrai total da seção
-      const mTotal = bloco.match(/Valor da fatura[:\s]+R\$\s*([\d.,]+)/i);
+      // Total da seção (calculado pelo Bradesco)
+      const mTotal   = bloco.match(/Valor da fatura[:\s]+R\$\s*([\d.,]+)/i);
       const subtotal = mTotal ? (parseValor(mTotal[1]) || 0) : 0;
 
-      // Extrai lançamentos
+      // Lançamentos
       const lancamentos = extrairLancamentos(bloco);
 
-      const cfg = banco.cartoesPrimo.find(c => c.final === final);
+      const cfg = banco.cartoesPrimo.find(c => c.final === secao.final);
       resultado.cartoes.push({
-        final,
-        apelido:  cfg?.apelido || `Cartão ${final}`,
-        titular:  titular.replace(/Valor da fatura.*/i, '').trim(),
+        final:       secao.final,
+        apelido:     cfg?.apelido || `Cartão ${secao.final}`,
+        titular:     secao.titular,
         lancamentos,
         subtotal
       });
