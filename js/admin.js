@@ -46,7 +46,7 @@ const Admin = (() => {
           <div class="upload-title">Clique para selecionar a fatura</div>
           <div class="upload-sub">PDF da fatura completa do cartão</div>
         </div>
-        <input type="file" id="file-input" accept=".pdf" style="display:none" onchange="Admin._onFileSelect(event)">
+        <input type="file" id="file-input" accept=".pdf,.csv" style="display:none" onchange="Admin._onFileSelect(event)">
         <div class="progress-bar" id="progress-bar" style="display:none">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
@@ -61,7 +61,7 @@ const Admin = (() => {
       e.preventDefault();
       zone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && file.type === 'application/pdf') processarPDF(file);
+      if (file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".csv"))) processarPDF(file);
       else UI.toast('Selecione um arquivo PDF válido', 'error');
     });
   }
