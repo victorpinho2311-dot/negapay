@@ -69,6 +69,7 @@ const PDFParser = (() => {
    */
   async function processar(file, banco, mesAno) {
     const texto = await extrairTexto(file);
+    console.log('TEXTO EXTRAÍDO:', texto.substring(0, 3000));
 
     // Divide o texto em seções por cartão
     // Cada seção começa com o padrão do banco
