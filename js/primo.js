@@ -89,7 +89,7 @@ const Primo = (() => {
         </div>
         <div class="summary-mes">Fatura ${formatarMesAno(fatura.mesAno)}</div>
         <div class="summary-valor">${formatarMoeda(fatura.totalGeral)}</div>
-        <div class="summary-vencimento">Vencimento: ${fatura.vencimento}</div>
+        <div class="summary-vencimento">Vencimento: ${formatarVencimento(fatura.vencimento)}</div>
       </div>
 
       ${avisoVencimento}
@@ -307,6 +307,19 @@ const Primo = (() => {
     return (meses[parseInt(mes) - 1] || mes) + ' ' + ano;
   }
 
+  function formatarVencimento(venc) {
+    if (!venc) return '';
+    if (venc.includes('T') || (venc.length > 8 && venc.includes('-'))) {
+      const d = new Date(venc);
+      if (!isNaN(d)) {
+        return String(d.getUTCDate()).padStart(2,'0') + '/' +
+               String(d.getUTCMonth()+1).padStart(2,'0') + '/' +
+               d.getUTCFullYear();
+      }
+    }
+    return venc;
+  }
+
   function formatarDataLanc(data) {
     if (!data) return '';
     // Se vier como ISO (2026-05-11T...), converte para DD/MM
@@ -332,14 +345,19 @@ const Primo = (() => {
     return `${a}${m}${d}`;
   }
 
-  function isVencido(vencimento) {
+  function parseVenc(vencimento) {
+    if (!vencimento) return new Date();
+    if (vencimento.includes('T') || (vencimento.length > 8 && vencimento.includes('-'))) return new Date(vencimento);
     const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date() > new Date(a, m - 1, d + 1);
+    return new Date(a, m - 1, d);
+  }
+
+  function isVencido(vencimento) {
+    return new Date() > parseVenc(vencimento);
   }
 
   function diasAteVencimento(vencimento) {
-    const [d, m, a] = vencimento.split('/').map(Number);
-    const venc = new Date(a, m - 1, d);
+    const venc = parseVenc(vencimento);
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     return Math.round((venc - hoje) / (1000 * 60 * 60 * 24));

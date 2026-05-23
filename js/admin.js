@@ -135,7 +135,7 @@ const Admin = (() => {
         <div>
           <div style="font-size:0.9rem;font-weight:700">${banco.nome}</div>
           <div style="font-size:0.78rem;color:var(--text-secondary)">
-            Vencimento: ${resultado.vencimento} · Referência: ${resultado.mesAno}
+            Vencimento: ${formatarVencimento(resultado.vencimento)} · Referência: ${resultado.mesAno}
           </div>
         </div>
       </div>
@@ -239,7 +239,7 @@ const Admin = (() => {
         <div class="historico-item">
           <div onclick="Admin._verFatura('${f.faturaId}')" style="flex:1;cursor:pointer">
             <div class="historico-mes">${formatarMesAno(f.mesAno)}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted)">Venc. ${f.vencimento}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">Venc. ${formatarVencimento(f.vencimento)}</div>
           </div>
           <div class="historico-right">
             <span class="historico-valor">${formatarMoeda(f.totalGeral)}</span>
@@ -298,6 +298,19 @@ const Admin = (() => {
   }
 
   // ── Helpers ──────────────────────────────────────────────
+  function formatarVencimento(venc) {
+    if (!venc) return '';
+    if (venc.includes('T') || venc.match(/^[0-9]{4}-/)) {
+      const d = new Date(venc);
+      if (!isNaN(d)) {
+        return String(d.getUTCDate()).padStart(2,'0') + '/' +
+               String(d.getUTCMonth()+1).padStart(2,'0') + '/' +
+               d.getUTCFullYear();
+      }
+    }
+    return venc;
+  }
+
   function formatarDataLanc(data) {
     if (!data) return '';
     if (data.includes('T') || (data.includes('-') && data.length > 5)) {
@@ -331,14 +344,19 @@ const Admin = (() => {
     return `${meses[idx] || mes} ${ano}`;
   }
 
-  function statusBadge(vencimento) {
+  function parseVenc(vencimento) {
+    if (!vencimento) return new Date();
+    if (vencimento.includes('T') || vencimento.match(/^[0-9]{4}-/)) return new Date(vencimento);
     const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date() > new Date(a, m - 1, d) ? 'badge-vencido' : 'badge-aberto';
+    return new Date(a, m - 1, d);
+  }
+
+  function statusBadge(vencimento) {
+    return new Date() > parseVenc(vencimento) ? 'badge-vencido' : 'badge-aberto';
   }
 
   function statusTexto(vencimento) {
-    const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date() > new Date(a, m - 1, d) ? '⚠ Vencido' : '⏳ Em aberto';
+    return new Date() > parseVenc(vencimento) ? '⚠ Vencido' : '⏳ Em aberto';
   }
 
   return {
