@@ -151,7 +151,7 @@ const Primo = (() => {
         ${cartao.lancamentos.map((l, idx) => `
           <div class="lancamento-item" style="animation-delay:${idx * 0.04}s">
             <div class="lancamento-info">
-              <div class="lancamento-data">${l.data}</div>
+              <div class="lancamento-data">${formatarDataLanc(l.data)}</div>
               <div class="lancamento-desc" title="${l.descricao}">${l.descricao}</div>
             </div>
             <div class="lancamento-valor ${l.tipo}">
@@ -293,9 +293,30 @@ const Primo = (() => {
   }
 
   function formatarMesAno(mesAno) {
+    if (!mesAno) return 'Fatura';
     const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    const [mes, ano] = mesAno.split('/');
-    return `${meses[parseInt(mes) - 1]} ${ano}`;
+    let mes, ano;
+    if (mesAno.length > 7) {
+      const d = new Date(mesAno);
+      mes = String(d.getUTCMonth() + 1);
+      ano = String(d.getUTCFullYear());
+    } else {
+      const partes = mesAno.split('/');
+      mes = partes[0]; ano = partes[1] || '';
+    }
+    return (meses[parseInt(mes) - 1] || mes) + ' ' + ano;
+  }
+
+  function formatarDataLanc(data) {
+    if (!data) return '';
+    // Se vier como ISO (2026-05-11T...), converte para DD/MM
+    if (data.includes('T') || data.includes('-')) {
+      const d = new Date(data);
+      if (!isNaN(d)) {
+        return String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0');
+      }
+    }
+    return data; // já está no formato DD/MM
   }
 
   function formatarData(isoString) {

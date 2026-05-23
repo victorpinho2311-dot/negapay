@@ -166,7 +166,7 @@ const Admin = (() => {
         ${cartao.lancamentos.map((l, idx) => `
           <div class="lancamento-item" style="animation-delay:${idx * 0.03}s">
             <div class="lancamento-info">
-              <div class="lancamento-data">${l.data}</div>
+              <div class="lancamento-data">${formatarDataLanc(l.data)}</div>
               <div class="lancamento-desc">${l.descricao}</div>
             </div>
             <div class="lancamento-valor ${l.tipo}">${l.tipo === 'estorno' ? '−' : ''}${formatarMoeda(Math.abs(l.valor))}</div>
@@ -298,14 +298,37 @@ const Admin = (() => {
   }
 
   // ── Helpers ──────────────────────────────────────────────
+  function formatarDataLanc(data) {
+    if (!data) return '';
+    if (data.includes('T') || (data.includes('-') && data.length > 5)) {
+      const d = new Date(data);
+      if (!isNaN(d)) {
+        return String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0');
+      }
+    }
+    return data;
+  }
+
   function formatarMoeda(valor) {
     return 'R$ ' + Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function formatarMesAno(mesAno) {
+    if (!mesAno) return 'Fatura';
     const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    const [mes, ano] = mesAno.split('/');
-    return `${meses[parseInt(mes) - 1]} ${ano}`;
+    // Aceita DD/MM/YYYY, MM/YYYY, ou ISO
+    let mes, ano;
+    if (mesAno.includes('T') || mesAno.match(/^\d{4}-/)) {
+      const d = new Date(mesAno);
+      mes = String(d.getUTCMonth() + 1);
+      ano = String(d.getUTCFullYear());
+    } else {
+      const partes = mesAno.split('/');
+      mes = partes[0];
+      ano = partes[1] || partes[2] || '';
+    }
+    const idx = parseInt(mes) - 1;
+    return `${meses[idx] || mes} ${ano}`;
   }
 
   function statusBadge(vencimento) {
