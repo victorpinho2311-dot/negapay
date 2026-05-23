@@ -287,7 +287,7 @@ const Admin = (() => {
     UI.toast('Carregando fatura...', '');
     const res = await API.post({ acao: 'getFatura', faturaId });
     if (res.ok) {
-      const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === res.fatura.banco) || NEGAPAY_CONFIG.bancos[0];
+      const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === (res.fatura.banco || 'bradesco')) || NEGAPAY_CONFIG.bancos[0];
       faturaProcessada = res.fatura;
       renderPreviewReadonly(res.fatura, banco);
       document.getElementById('preview-section').style.display = 'block';

@@ -65,7 +65,7 @@ const Primo = (() => {
   // ── Render da fatura atual (card hero + lançamentos) ─────
   function renderFaturaAtual(fatura) {
     const container = document.getElementById('primo-atual');
-    const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === fatura.banco) || NEGAPAY_CONFIG.bancos[0];
+    const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === (fatura.banco || 'bradesco')) || NEGAPAY_CONFIG.bancos[0];
     const pago = fatura.pago;
     const vencido = isVencido(fatura.vencimento) && !pago;
     const diasParaVencer = diasAteVencimento(fatura.vencimento);
