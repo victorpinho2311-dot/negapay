@@ -3,7 +3,7 @@
 //  Cache básico para funcionamento offline da interface
 // ============================================================
 
-const CACHE_NAME = 'negapay-v1';
+const CACHE_NAME = 'negapay-v2';
 
 const ARQUIVOS_CACHE = [
   '/',
