@@ -1,15 +1,12 @@
 // ============================================================
-//  NegaPay — PDF Parser v2.0
-//  Estratégia: processa token a token com máquina de estados
-//  Baseado na estrutura real da fatura Bradesco:
-//    - Dia e mês chegam separados
-//    - Descrição pode ter múltiplos tokens
-//    - Valor é o último token numérico da "linha lógica"
+//  NegaPay — PDF Parser v3.0
+//  Estratégia: extrai texto completo, divide em blocos por
+//  cartão usando o padrão "Final XXXX", usa total já calculado
+//  pelo Bradesco e extrai lançamentos por regex no bloco.
 // ============================================================
 
 const PDFParser = (() => {
 
-  // ── Carrega PDF.js ───────────────────────────────────────
   function carregarPDFjs() {
     return new Promise((resolve, reject) => {
       if (window.pdfjsLib) return resolve();
@@ -25,75 +22,110 @@ const PDFParser = (() => {
     });
   }
 
-  // ── Extrai texto completo página a página ────────────────
+  // ── Extrai texto de cada página separadamente ────────────
   async function extrairTexto(file) {
     await carregarPDFjs();
     const buf = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-    let texto = '';
+    const paginas = [];
     for (let p = 1; p <= pdf.numPages; p++) {
       const page    = await pdf.getPage(p);
       const content = await page.getTextContent();
-      // Junta tokens com espaço, preservando quebras de bloco
-      const pageText = content.items.map(i => i.str).join(' ');
-      texto += pageText + '\n';
+      paginas.push(content.items.map(i => i.str).join(' '));
     }
-    return texto;
+    return paginas.join('\n---PAGINA---\n');
   }
 
-  // ── Converte valor BR → número ───────────────────────────
+  // ── Converte valor BR para número ────────────────────────
   function parseValor(str) {
     if (!str) return null;
-    const s = str.replace(/\./g, '').replace(',', '.');
+    const s = str.trim().replace(/\./g, '').replace(',', '.');
     const n = parseFloat(s);
     return isNaN(n) ? null : n;
   }
 
-  // ── Meses PT → número ────────────────────────────────────
+  // ── Meses PT ─────────────────────────────────────────────
   const MESES = {
     JAN:'01',FEV:'02',MAR:'03',ABR:'04',MAI:'05',JUN:'06',
     JUL:'07',AGO:'08',SET:'09',OUT:'10',NOV:'11',DEZ:'12'
   };
 
-  // ── Verifica se token é um valor monetário BR ────────────
-  function isValor(str) {
-    return /^-?\d{1,3}(\.\d{3})*(,\d{2})$/.test(str.trim());
+  // ── Extrai lançamentos de um bloco de texto de cartão ────
+  function extrairLancamentos(bloco) {
+    const lancamentos = [];
+
+    // Normaliza espaços
+    const texto = bloco.replace(/\s+/g, ' ').trim();
+
+    // Padrão: número dia (1-31) + mês (JAN..DEZ) + descrição + valor
+    // Ex: "11 MAI MP *58PRODUTOS -84,95"
+    // Ex: "18 ABR DL *AliExpress BR Alip ( 02/12 ) 123,81"
+    // Ex: "17 MAI RAIA202 26,89  TAUSTE SUPERMERCADOS 179,56"
+    // Estratégia: encontra todas as ocorrências de "DD MES" e
+    // divide o texto nesses pontos, processando cada fragmento
+
+    const regexData = /\b(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\b/gi;
+    const posicoes = [];
+    let m;
+    while ((m = regexData.exec(texto)) !== null) {
+      posicoes.push({ index: m.index, dia: m[1], mes: m[2].toUpperCase(), end: m.index + m[0].length });
+    }
+
+    for (let i = 0; i < posicoes.length; i++) {
+      const pos   = posicoes[i];
+      const data  = `${pos.dia.padStart(2,'0')}/${MESES[pos.mes]}`;
+      const fim   = posicoes[i + 1] ? posicoes[i + 1].index : texto.length;
+      const trecho = texto.slice(pos.end, fim).trim();
+
+      // Dentro do trecho, extrai pares "descrição valor"
+      // Um valor é: -?digits(,digits)(.digits)* com vírgula decimal
+      const regexLanc = /(.+?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})(?=\s|$)/g;
+      let match;
+      while ((match = regexLanc.exec(trecho)) !== null) {
+        const desc  = limparDesc(match[1]);
+        const valor = parseValor(match[2]);
+
+        if (!desc || valor === null) continue;
+        if (deveIgnorar(desc)) continue;
+        if (desc.length < 2) continue;
+
+        lancamentos.push({
+          data,
+          descricao: desc,
+          valor,
+          tipo: valor < 0 ? 'estorno' : 'compra'
+        });
+      }
+    }
+
+    return lancamentos;
   }
 
-  // ── Verifica se token é dia (1-31) ───────────────────────
-  function isDia(str) {
-    const n = parseInt(str);
-    return /^\d{1,2}$/.test(str.trim()) && n >= 1 && n <= 31;
-  }
-
-  // ── Verifica se token é mês abreviado ────────────────────
-  function isMes(str) {
-    return MESES.hasOwnProperty(str.trim().toUpperCase());
-  }
-
-  // ── Termos a ignorar completamente ───────────────────────
-  const IGNORAR = [
-    'SALDO ANTERIOR', 'PAGTO.', 'PAGAMENTO', 'Data', 'Lançamentos',
-    'Moeda', 'Origem', 'Valor', 'Cotação', 'US$', 'R$',
-    'Gastos', 'referentes', 'cartão', 'Final', 'Fatura',
-    'Data de vencimento', 'Total', 'Forma', 'Melhor',
-    'Débito', 'conta', 'Validade', 'Cartao', 'selecionado',
-    'Resumo', 'Despesas', 'Real', 'Saldo', 'Pagamentos',
-    'Créditos', 'Despesas', 'Pagamento', 'mínimo', 'Taxas',
-    'Mensais', 'Taxa', 'Mês', 'Ano', 'CET', 'Máx',
-    'Rotativo', 'Saque', 'Crediário', 'anterior', 'Extrato',
-    'Aberto', 'sujeitos', 'alteração', 'fechamento',
-    'Parcelamento', 'Crédito', 'Próximo', 'Período'
+  // ── Termos a ignorar ──────────────────────────────────────
+  const BLOQUEIOS = [
+    'saldo anterior', 'pagto', 'pagamento', 'data lançamentos',
+    'moeda de origem', 'valor da fatura', 'total da fatura',
+    'resumo das despesas', 'taxas mensais', 'parcelamento',
+    'crédito rotativo', 'pagamento mínimo', 'despesas locais',
+    'despesas no exterior', 'extrato em aberto'
   ];
 
   function deveIgnorar(str) {
-    return IGNORAR.some(ig => str.toLowerCase().includes(ig.toLowerCase()));
+    const s = str.toLowerCase();
+    return BLOQUEIOS.some(b => s.includes(b));
+  }
+
+  function limparDesc(str) {
+    return str
+      .replace(/\(\s*\d{2}\/\d{2}\s*\)/g, '') // remove ( 02/10 )
+      .replace(/•/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   // ── Parser principal ─────────────────────────────────────
   async function processar(file, banco, mesAno) {
-    const texto  = await extrairTexto(file);
-    const tokens = texto.split(/\s+/).filter(t => t.length > 0);
+    const texto = await extrairTexto(file);
 
     const resultado = {
       mesAno,
@@ -105,135 +137,42 @@ const PDFParser = (() => {
 
     const finaisPrimo = banco.cartoesPrimo.map(c => c.final);
 
-    let secaoAtual  = null;
-    let lancamentos = [];
-    let totalSecao  = 0;
-    let dataAtual   = null;
+    // Divide o texto em blocos por seção de cartão
+    // Padrão: "Final XXXX | NOME ... Valor da fatura: R$ X"
+    // Usamos split com captura para manter os delimitadores
+    const regexSecao = /Final\s+(\d{4})\s*\|\s*([^\n]+?)(?=Final\s+\d{4}|$)/gi;
 
-    // Acumulador de lançamento em construção
-    let diaBuffer  = null;
-    let mesBuffer  = null;
-    let descBuffer = [];
+    let match;
+    while ((match = regexSecao.exec(texto)) !== null) {
+      const final   = match[1];
+      const titular = match[2].split(/Valor da fatura|Data Lançamentos/)[0].trim();
+      const bloco   = match[0];
 
-    const salvarSecao = () => {
-      if (!secaoAtual || !finaisPrimo.includes(secaoAtual.final)) return;
-      const cfg = banco.cartoesPrimo.find(c => c.final === secaoAtual.final);
+      if (!finaisPrimo.includes(final)) continue;
+
+      // Extrai total da seção
+      const mTotal = bloco.match(/Valor da fatura[:\s]+R\$\s*([\d.,]+)/i);
+      const subtotal = mTotal ? (parseValor(mTotal[1]) || 0) : 0;
+
+      // Extrai lançamentos
+      const lancamentos = extrairLancamentos(bloco);
+
+      const cfg = banco.cartoesPrimo.find(c => c.final === final);
       resultado.cartoes.push({
-        final:       secaoAtual.final,
-        apelido:     cfg?.apelido || `Cartão ${secaoAtual.final}`,
-        titular:     secaoAtual.titular,
-        lancamentos: lancamentos,
-        subtotal:    totalSecao
+        final,
+        apelido:  cfg?.apelido || `Cartão ${final}`,
+        titular:  titular.replace(/Valor da fatura.*/i, '').trim(),
+        lancamentos,
+        subtotal
       });
-      resultado.totalGeral += totalSecao;
-    };
 
-    const salvarLancamento = (valorStr) => {
-      const valor = parseValor(valorStr);
-      if (valor === null) return;
-
-      const data = dataAtual || '??/??';
-      const descricao = limparDesc(descBuffer.join(' '));
-      descBuffer = [];
-
-      if (!descricao || deveIgnorar(descricao)) return;
-
-      lancamentos.push({
-        data,
-        descricao,
-        valor,
-        tipo: valor < 0 ? 'estorno' : 'compra'
-      });
-    };
-
-    // Varre tokens um por um
-    for (let i = 0; i < tokens.length; i++) {
-      const t  = tokens[i];
-      const t1 = tokens[i + 1] || '';
-      const t2 = tokens[i + 2] || '';
-
-      // ── Detecta cabeçalho de seção ───────────────────────
-      // "Final 9087 | GETLIO R D S FARIAS"
-      if (t === 'Final' && /^\d{4}$/.test(t1)) {
-        // Fecha seção anterior
-        if (descBuffer.length > 0 && dataAtual) {
-          // tenta salvar lançamento incompleto
-          descBuffer = [];
-        }
-        salvarSecao();
-
-        const final = t1;
-        // Pula o '|' e coleta nome até próximo número ou keyword
-        let j = i + 2;
-        if (tokens[j] === '|') j++;
-        const nomeTokens = [];
-        while (j < tokens.length && !/^\d{4}$/.test(tokens[j]) &&
-               tokens[j] !== 'Final' && tokens[j] !== 'Valor') {
-          nomeTokens.push(tokens[j]);
-          j++;
-        }
-        i = j - 1;
-
-        secaoAtual  = { final, titular: nomeTokens.join(' ').trim() };
-        lancamentos = [];
-        totalSecao  = 0;
-        dataAtual   = null;
-        diaBuffer   = null;
-        mesBuffer   = null;
-        descBuffer  = [];
-        continue;
-      }
-
-      if (!secaoAtual) continue;
-
-      // ── Detecta total da seção ───────────────────────────
-      // "Valor da fatura: R$ 1.403,36"
-      if (t === 'fatura:' && isValor(t1)) {
-        const v = parseValor(t1);
-        if (v !== null) totalSecao = v;
-        i++;
-        continue;
-      }
-
-      // ── Detecta data: dia seguido de mês ─────────────────
-      if (isDia(t) && isMes(t1)) {
-        // Salva lançamento anterior se houver descrição pendente
-        // (o valor já foi salvo quando encontramos o isValor)
-        diaBuffer = t.padStart(2, '0');
-        mesBuffer = MESES[t1.toUpperCase()];
-        dataAtual = `${diaBuffer}/${mesBuffer}`;
-        i++; // pula o mês
-        descBuffer = [];
-        continue;
-      }
-
-      // ── Detecta valor monetário ──────────────────────────
-      if (isValor(t)) {
-        salvarLancamento(t);
-        continue;
-      }
-
-      // ── Acumula tokens de descrição ──────────────────────
-      if (!deveIgnorar(t) && t !== '|' && t !== '•' &&
-          !/^\d{2}\/\d{4}$/.test(t) && // ignora datas tipo 05/2026
-          !/^\*{4}$/.test(t)) {
-        descBuffer.push(t);
-      }
+      resultado.totalGeral += subtotal;
     }
 
-    salvarSecao();
     return resultado;
   }
 
-  // ── Remove parcelamento e limpa descrição ────────────────
-  function limparDesc(str) {
-    return str
-      .replace(/\(\s*\d{2}\/\d{2}\s*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  // ── Calcula data de vencimento ───────────────────────────
+  // ── Calcula vencimento ───────────────────────────────────
   function calcularVencimento(dia, mesAno) {
     const [mes, ano] = mesAno.split('/').map(Number);
     let mf = mes + 1, af = ano;
