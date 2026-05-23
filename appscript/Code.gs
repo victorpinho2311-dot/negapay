@@ -110,10 +110,9 @@ function salvarFatura(body) {
 
   const faturaId = 'FAT_' + mesAno.replace('/', '_') + '_' + Date.now();
 
-  // Prefixo de apóstrofo força o Sheets a tratar como texto puro
   sheetFaturas.appendRow([
-    faturaId, mesAno, converterVencimento(vencimento), totalGeral,
-    false, '', new Date().toISOString(), fatura.banco || 'bradesco'
+    faturaId, mesAno, vencimento, totalGeral,
+    false, '', new Date().toISOString()
   ]);
 
   const lancDados = sheetLanc.getDataRange().getValues();
@@ -144,8 +143,7 @@ function listarFaturas(body) {
   for (let i = 1; i < dados.length; i++) {
     const [faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm] = dados[i];
     if (!faturaId) continue;
-    const bancoId = dados[i][7] || 'bradesco';
-    faturas.push({ faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm, banco: bancoId });
+    faturas.push({ faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm });
   }
 
   faturas.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
@@ -169,8 +167,7 @@ function getFatura(body) {
         totalGeral:    fatDados[i][3],
         pago:          fatDados[i][4],
         dataPagamento: fatDados[i][5],
-        criadoEm:      fatDados[i][6],
-        banco:         fatDados[i][7] || 'bradesco'
+        criadoEm:      fatDados[i][6]
       };
       break;
     }
@@ -251,7 +248,7 @@ function setupSheet() {
   abaU.appendRow(['getlio', hashSenha('negapay@primo'), 'primo', true, '', '']);
 
   const abaF = ss.insertSheet(ABA_FATURAS);
-  abaF.appendRow(['faturaId', 'mesAno', 'vencimento', 'totalGeral', 'pago', 'dataPagamento', 'criadoEm', 'bancoId']);
+  abaF.appendRow(['faturaId', 'mesAno', 'vencimento', 'totalGeral', 'pago', 'dataPagamento', 'criadoEm']);
 
   const abaL = ss.insertSheet(ABA_LANCAMENTOS);
   abaL.appendRow(['id', 'faturaId', 'cartaoFinal', 'data', 'descricao', 'valor', 'tipo']);
@@ -264,13 +261,6 @@ function setupSheet() {
 // ─────────────────────────────────────────
 //  UTILITÁRIOS
 // ─────────────────────────────────────────
-// Converte DD/MM/YYYY para YYYY-MM-DD para evitar conversão automática do Sheets
-function converterVencimento(venc) {
-  if (!venc || !venc.includes('/')) return venc;
-  const [d, m, a] = venc.split('/');
-  return a + '-' + m + '-' + d;
-}
-
 function getAba(nome) {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(nome);
 }

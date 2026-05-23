@@ -8,8 +8,7 @@ const NEGAPAY_CONFIG = {
 
   // URL do Apps Script publicado como Web App
   // Após publicar o Code.gs, cole a URL aqui
-  apiUrl: 'COLE_AQUI_A_URL_DO_APPS_SCRIPT',
-
+apiUrl: 'https://script.google.com/macros/s/AKfycbyhfO7TiK9MThPhfSHkRrSBcMr1RZEaNRRN1LDj-F8hLxkwDY3Oo7dBqzo9YKHIv8vY/exec',
   // Duração da sessão local (em dias)
   sessaoDias: 30,
 
@@ -43,12 +42,12 @@ const NEGAPAY_CONFIG = {
         {
           final: '9087',
           apelido: 'Cartão Principal',
-          titular: 'Getulio R D S Farias'
+          titular: 'Getlio R D S Farias'
         },
         {
           final: '2011',
           apelido: 'Cartão Secundário',
-          titular: 'Getulio R D S Farias'
+          titular: 'Getlio R D S Farias'
         }
       ]
     }
@@ -66,7 +65,7 @@ const NEGAPAY_CONFIG = {
     //   padraoLancamento: /...,
     //   padraoTotal: /...,
     //   cartoesPrimo: [
-    //     { final: 'ZZZZ', apelido: 'Cartão Nubank', titular: 'Getulio R D S Farias' }
+    //     { final: 'ZZZZ', apelido: 'Cartão Nubank', titular: 'Getlio R D S Farias' }
     //   ]
     // }
   ],
@@ -75,7 +74,7 @@ const NEGAPAY_CONFIG = {
   //  DADOS DO PRIMO (readonly)
   // ──────────────────────────────────────────────────────────
   primo: {
-    nome: 'Getulio',
+    nome: 'Getlio',
     apelido: 'Nega',                         // usado em saudações informais
     usuarioLogin: 'getlio'
   },
