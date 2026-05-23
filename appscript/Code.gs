@@ -1,6 +1,6 @@
 // ============================================================
-//  NegaPay — Apps Script Backend v1.1
-//  Correção: CORS via GET com parâmetros JSON encoded
+//  NegaPay — Apps Script Backend v1.2
+//  Adicionado: excluirFatura
 // ============================================================
 
 const SHEET_ID = '1qHp4OOiOYxz-JYEZF3gmXfUW3cVAiODD2nNy2fZM1jA';
@@ -9,14 +9,11 @@ const ABA_USUARIOS    = 'usuarios';
 const ABA_FATURAS     = 'faturas';
 const ABA_LANCAMENTOS = 'lancamentos';
 
-// ─────────────────────────────────────────
-//  ENTRY POINT — GET (evita CORS preflight)
-// ─────────────────────────────────────────
 function doGet(e) {
   try {
     const payload = e.parameter.payload;
     if (!payload) {
-      return resposta({ ok: true, servico: 'NegaPay API', versao: '1.1' });
+      return resposta({ ok: true, servico: 'NegaPay API', versao: '1.2' });
     }
 
     const body = JSON.parse(decodeURIComponent(payload));
@@ -24,13 +21,14 @@ function doGet(e) {
     let resultado;
 
     switch (acao) {
-      case 'login':         resultado = login(body); break;
-      case 'validarToken':  resultado = validarToken(body); break;
-      case 'salvarFatura':  resultado = salvarFatura(body); break;
-      case 'listarFaturas': resultado = listarFaturas(body); break;
-      case 'getFatura':     resultado = getFatura(body); break;
-      case 'marcarPago':    resultado = marcarPago(body); break;
-      default:              resultado = { ok: false, erro: 'Ação desconhecida' };
+      case 'login':          resultado = login(body); break;
+      case 'validarToken':   resultado = validarToken(body); break;
+      case 'salvarFatura':   resultado = salvarFatura(body); break;
+      case 'listarFaturas':  resultado = listarFaturas(body); break;
+      case 'getFatura':      resultado = getFatura(body); break;
+      case 'marcarPago':     resultado = marcarPago(body); break;
+      case 'excluirFatura':  resultado = excluirFatura(body); break;
+      default:               resultado = { ok: false, erro: 'Ação desconhecida' };
     }
 
     return resposta(resultado);
@@ -40,7 +38,6 @@ function doGet(e) {
   }
 }
 
-// doPost mantido como fallback
 function doPost(e) {
   return doGet({ parameter: { payload: encodeURIComponent(e.postData.contents) } });
 }
@@ -106,7 +103,6 @@ function salvarFatura(body) {
   const sheetFaturas = getAba(ABA_FATURAS);
   const sheetLanc    = getAba(ABA_LANCAMENTOS);
 
-  // Remove fatura existente do mesmo mesAno
   const faturasDados = sheetFaturas.getDataRange().getValues();
   for (let i = faturasDados.length - 1; i >= 1; i--) {
     if (faturasDados[i][0] === mesAno) sheetFaturas.deleteRow(i + 1);
@@ -119,7 +115,6 @@ function salvarFatura(body) {
     false, '', new Date().toISOString()
   ]);
 
-  // Remove lançamentos antigos
   const lancDados = sheetLanc.getDataRange().getValues();
   for (let i = lancDados.length - 1; i >= 1; i--) {
     if (lancDados[i][1] === faturaId) sheetLanc.deleteRow(i + 1);
@@ -214,6 +209,30 @@ function marcarPago(body) {
   }
 
   return { ok: false, erro: 'Fatura não encontrada' };
+}
+
+function excluirFatura(body) {
+  const auth = validarToken(body);
+  if (!auth.ok) return auth;
+  if (auth.perfil !== 'admin') return { ok: false, erro: 'Sem permissão' };
+
+  const { faturaId } = body;
+
+  // Remove da aba faturas
+  const sheetFaturas = getAba(ABA_FATURAS);
+  const fatDados = sheetFaturas.getDataRange().getValues();
+  for (let i = fatDados.length - 1; i >= 1; i--) {
+    if (fatDados[i][0] === faturaId) sheetFaturas.deleteRow(i + 1);
+  }
+
+  // Remove todos os lançamentos
+  const sheetLanc = getAba(ABA_LANCAMENTOS);
+  const lancDados = sheetLanc.getDataRange().getValues();
+  for (let i = lancDados.length - 1; i >= 1; i--) {
+    if (lancDados[i][1] === faturaId) sheetLanc.deleteRow(i + 1);
+  }
+
+  return { ok: true };
 }
 
 // ─────────────────────────────────────────

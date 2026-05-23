@@ -1,6 +1,6 @@
 // ============================================================
-//  NegaPay — Painel Admin
-//  Upload de PDF, revisão e publicação de faturas
+//  NegaPay — Painel Admin v1.1
+//  Adicionado: botão excluir fatura no histórico
 // ============================================================
 
 const Admin = (() => {
@@ -8,26 +8,22 @@ const Admin = (() => {
   let faturaProcessada = null;
   let bancoSelecionado = null;
 
-  // ── Inicializa o painel admin ────────────────────────────
   function init() {
     renderHeader();
     renderUploadSection();
     renderHistorico();
   }
 
-  // ── Header ───────────────────────────────────────────────
   function renderHeader() {
     const hora = new Date().getHours();
     document.getElementById('header-greeting').textContent =
       NEGAPAY_CONFIG.textos.saudacaoAdmin(hora);
   }
 
-  // ── Seção de upload ──────────────────────────────────────
   function renderUploadSection() {
     const container = document.getElementById('admin-upload');
     const bancos = NEGAPAY_CONFIG.bancos;
 
-    // Seletor de banco (para futuro multi-banco)
     const seletorBanco = bancos.length > 1
       ? `<div class="banco-select-group" id="banco-selector">
           ${bancos.map((b, i) => `
@@ -44,26 +40,20 @@ const Admin = (() => {
     container.innerHTML = `
       <div class="card">
         <p class="card-title">📤 Nova fatura</p>
-
         ${seletorBanco}
-
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
           <div class="upload-icon">📄</div>
           <div class="upload-title">Clique para selecionar a fatura</div>
           <div class="upload-sub">PDF da fatura completa do cartão</div>
         </div>
-
         <input type="file" id="file-input" accept=".pdf" style="display:none" onchange="Admin._onFileSelect(event)">
-
         <div class="progress-bar" id="progress-bar" style="display:none">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
-
         <div id="preview-section" style="display:none"></div>
       </div>
     `;
 
-    // Drag and drop
     const zone = document.getElementById('upload-zone');
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
@@ -76,42 +66,37 @@ const Admin = (() => {
     });
   }
 
-  // ── Seleção de banco ─────────────────────────────────────
   function _selecionarBanco(bancoId, el) {
     bancoSelecionado = bancoId;
     document.querySelectorAll('.banco-option').forEach(o => o.classList.remove('selected'));
     el.classList.add('selected');
   }
 
-  // ── Seleção de arquivo ───────────────────────────────────
   function _onFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
     processarPDF(file);
   }
 
-  // ── Processa o PDF ───────────────────────────────────────
   async function processarPDF(file) {
-    const progressBar = document.getElementById('progress-bar');
+    const progressBar  = document.getElementById('progress-bar');
     const progressFill = document.getElementById('progress-fill');
-    const preview = document.getElementById('preview-section');
+    const preview      = document.getElementById('preview-section');
 
     progressBar.style.display = 'block';
-    progressFill.style.width = '20%';
-    preview.style.display = 'none';
+    progressFill.style.width  = '20%';
+    preview.style.display     = 'none';
 
     try {
-      const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === bancoSelecionado);
+      const banco  = NEGAPAY_CONFIG.bancos.find(b => b.id === bancoSelecionado);
       const mesAno = calcularMesAno();
 
       progressFill.style.width = '50%';
-
       const resultado = await PDFParser.processar(file, banco, mesAno);
-
       progressFill.style.width = '90%';
 
       if (resultado.cartoes.length === 0) {
-        UI.toast('Nenhum cartão do primo encontrado nesta fatura. Verifique os dígitos configurados.', 'error');
+        UI.toast('Nenhum cartão do primo encontrado. Verifique os dígitos configurados.', 'error');
         progressBar.style.display = 'none';
         return;
       }
@@ -132,22 +117,19 @@ const Admin = (() => {
     }
   }
 
-  // ── Calcula mesAno baseado no mês atual ──────────────────
   function calcularMesAno() {
     const agora = new Date();
-    const mes = String(agora.getMonth() + 1).padStart(2, '0');
-    const ano = agora.getFullYear();
+    const mes   = String(agora.getMonth() + 1).padStart(2, '0');
+    const ano   = agora.getFullYear();
     return `${mes}/${ano}`;
   }
 
-  // ── Render preview da fatura processada ──────────────────
   function renderPreview(resultado, banco) {
     const preview = document.getElementById('preview-section');
 
     preview.innerHTML = `
       <hr class="divider">
       <p class="card-title" style="margin-top:0.5rem">✅ Fatura processada — revise antes de publicar</p>
-
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem">
         <img src="${banco.logoUrl}" alt="${banco.nome}" style="height:28px" onerror="this.style.display='none'">
         <div>
@@ -157,14 +139,11 @@ const Admin = (() => {
           </div>
         </div>
       </div>
-
       ${resultado.cartoes.map(cartao => renderCartaoPreview(cartao)).join('')}
-
       <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total a pagar pelo Getlio</span>
         <span style="font-size:1.4rem;font-weight:900;color:var(--text-primary)">${formatarMoeda(resultado.totalGeral)}</span>
       </div>
-
       <div style="display:flex;gap:0.75rem;margin-top:1rem">
         <button class="btn btn-secondary" onclick="Admin._cancelarPreview()" style="flex:1">Cancelar</button>
         <button class="btn btn-primary" onclick="Admin._publicarFatura()" style="flex:2" id="btn-publicar">
@@ -197,14 +176,12 @@ const Admin = (() => {
     `;
   }
 
-  // ── Cancela preview ──────────────────────────────────────
   function _cancelarPreview() {
     document.getElementById('preview-section').style.display = 'none';
     document.getElementById('file-input').value = '';
     faturaProcessada = null;
   }
 
-  // ── Publica fatura no Sheets ─────────────────────────────
   async function _publicarFatura() {
     if (!faturaProcessada) return;
 
@@ -213,15 +190,12 @@ const Admin = (() => {
     btn.innerHTML = '<span class="spinner"></span> Publicando...';
 
     try {
-      const res = await API.post({
-        acao: 'salvarFatura',
-        fatura: faturaProcessada
-      });
+      const res = await API.post({ acao: 'salvarFatura', fatura: faturaProcessada });
 
       if (res.ok) {
         UI.toast('Fatura publicada! O Getlio já pode visualizar. ✅', 'success');
         _cancelarPreview();
-        await renderHistorico(); // atualiza lista
+        await renderHistorico();
       } else {
         UI.toast('Erro ao publicar: ' + res.erro, 'error');
       }
@@ -233,7 +207,6 @@ const Admin = (() => {
     }
   }
 
-  // ── Histórico de faturas ─────────────────────────────────
   async function renderHistorico() {
     const container = document.getElementById('admin-historico');
     container.innerHTML = `
@@ -248,7 +221,7 @@ const Admin = (() => {
     `;
 
     try {
-      const res = await API.post({ acao: 'listarFaturas' });
+      const res  = await API.post({ acao: 'listarFaturas' });
       const list = document.getElementById('historico-list');
 
       if (!res.ok || res.faturas.length === 0) {
@@ -263,8 +236,8 @@ const Admin = (() => {
       }
 
       list.innerHTML = res.faturas.map(f => `
-        <div class="historico-item" onclick="Admin._verFatura('${f.faturaId}')">
-          <div>
+        <div class="historico-item">
+          <div onclick="Admin._verFatura('${f.faturaId}')" style="flex:1;cursor:pointer">
             <div class="historico-mes">${formatarMesAno(f.mesAno)}</div>
             <div style="font-size:0.78rem;color:var(--text-muted)">Venc. ${f.vencimento}</div>
           </div>
@@ -273,7 +246,13 @@ const Admin = (() => {
             <span class="badge ${f.pago ? 'badge-pago' : statusBadge(f.vencimento)}">
               ${f.pago ? '✓ Pago' : statusTexto(f.vencimento)}
             </span>
-            <span style="color:var(--text-muted);font-size:1rem">›</span>
+            <button
+              onclick="Admin._confirmarExcluir('${f.faturaId}', '${formatarMesAno(f.mesAno)}')"
+              title="Excluir fatura"
+              style="background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:var(--text-muted);font-size:1rem;transition:all 0.2s;line-height:1"
+              onmouseover="this.style.background='var(--danger-bg)';this.style.color='var(--danger)'"
+              onmouseout="this.style.background='none';this.style.color='var(--text-muted)'"
+            >🗑</button>
           </div>
         </div>
       `).join('');
@@ -284,19 +263,35 @@ const Admin = (() => {
     }
   }
 
-  // ── Ver detalhes de uma fatura ───────────────────────────
+  // ── Confirma exclusão com dialog simples ─────────────────
+  function _confirmarExcluir(faturaId, mesAno) {
+    const confirmado = window.confirm(`Excluir a fatura de ${mesAno}?\n\nEssa ação não pode ser desfeita.`);
+    if (confirmado) _excluirFatura(faturaId);
+  }
+
+  async function _excluirFatura(faturaId) {
+    try {
+      const res = await API.post({ acao: 'excluirFatura', faturaId });
+      if (res.ok) {
+        UI.toast('Fatura excluída.', 'success');
+        await renderHistorico();
+      } else {
+        UI.toast('Erro ao excluir: ' + res.erro, 'error');
+      }
+    } catch (err) {
+      UI.toast('Erro de conexão.', 'error');
+    }
+  }
+
   async function _verFatura(faturaId) {
-    // Por ora abre um modal simples — pode ser expandido
     UI.toast('Carregando fatura...', '');
     const res = await API.post({ acao: 'getFatura', faturaId });
     if (res.ok) {
       const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === res.fatura.banco) || NEGAPAY_CONFIG.bancos[0];
-      // Reutiliza o preview para visualização (modo leitura)
       faturaProcessada = res.fatura;
-      const preview = document.getElementById('preview-section');
       renderPreview(res.fatura, banco);
-      preview.style.display = 'block';
-      preview.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('preview-section').style.display = 'block';
+      document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
     } else {
       UI.toast('Erro ao carregar fatura', 'error');
     }
@@ -315,20 +310,19 @@ const Admin = (() => {
 
   function statusBadge(vencimento) {
     const [d, m, a] = vencimento.split('/').map(Number);
-    const venc = new Date(a, m - 1, d);
-    return new Date() > venc ? 'badge-vencido' : 'badge-aberto';
+    return new Date() > new Date(a, m - 1, d) ? 'badge-vencido' : 'badge-aberto';
   }
 
   function statusTexto(vencimento) {
     const [d, m, a] = vencimento.split('/').map(Number);
-    const venc = new Date(a, m - 1, d);
-    return new Date() > venc ? '⚠ Vencido' : '⏳ Em aberto';
+    return new Date() > new Date(a, m - 1, d) ? '⚠ Vencido' : '⏳ Em aberto';
   }
 
   return {
     init, renderHistorico,
     _selecionarBanco, _onFileSelect,
-    _cancelarPreview, _publicarFatura, _verFatura
+    _cancelarPreview, _publicarFatura,
+    _verFatura, _confirmarExcluir
   };
 
 })();
