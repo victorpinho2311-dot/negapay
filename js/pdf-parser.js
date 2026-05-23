@@ -1,12 +1,11 @@
 // ============================================================
-//  NegaPay — PDF Parser
-//  Extrai lançamentos dos cartões do primo a partir do PDF
-//  da fatura Bradesco usando PDF.js (carregado via CDN).
+//  NegaPay — PDF Parser v1.2
+//  Usa coordenadas X/Y do PDF.js para reconstruir linhas
+//  corretamente, independente de quebras de texto.
 // ============================================================
 
 const PDFParser = (() => {
 
-  // ── Carrega PDF.js via CDN ───────────────────────────────
   function carregarPDFjs() {
     return new Promise((resolve, reject) => {
       if (window.pdfjsLib) return resolve();
@@ -22,91 +21,101 @@ const PDFParser = (() => {
     });
   }
 
-  // ── Extrai todo o texto do PDF página a página ───────────
-  async function extrairTexto(file) {
+  // ── Extrai itens com posição de todas as páginas ─────────
+  async function extrairItens(file) {
     await carregarPDFjs();
-
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-    let textoCompleto = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
+    const todosItens = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page    = await pdf.getPage(p);
       const content = await page.getTextContent();
-      const linhas = content.items.map(item => item.str).join(' ');
-      textoCompleto += linhas + '\n';
+      const vp      = page.getViewport({ scale: 1 });
+
+      content.items.forEach(item => {
+        if (!item.str || !item.str.trim()) return;
+        todosItens.push({
+          texto: item.str.trim(),
+          x: Math.round(item.transform[4]),
+          y: Math.round(vp.height - item.transform[5]), // inverte Y (PDF origin = bottom)
+          pagina: p
+        });
+      });
     }
-
-    return textoCompleto;
+    return todosItens;
   }
 
-  // ── Converte valor brasileiro para número ────────────────
-  // Ex: "1.234,56" → 1234.56 | "-529,90" → -529.90
+  // ── Agrupa itens em linhas por proximidade vertical ──────
+  function agruparEmLinhas(itens, toleranciaY = 4) {
+    const linhas = [];
+    let linhaAtual = [];
+    let yAtual = null;
+
+    // Ordena por página → Y → X
+    itens.sort((a, b) => a.pagina - b.pagina || a.y - b.y || a.x - b.x);
+
+    for (const item of itens) {
+      if (yAtual === null || Math.abs(item.y - yAtual) <= toleranciaY) {
+        linhaAtual.push(item);
+        yAtual = yAtual === null ? item.y : (yAtual + item.y) / 2;
+      } else {
+        if (linhaAtual.length) {
+          linhas.push(linhaAtual.sort((a, b) => a.x - b.x));
+        }
+        linhaAtual = [item];
+        yAtual = item.y;
+      }
+    }
+    if (linhaAtual.length) linhas.push(linhaAtual.sort((a, b) => a.x - b.x));
+
+    return linhas.map(linha => linha.map(i => i.texto).join(' '));
+  }
+
+  // ── Converte valor BR para número ────────────────────────
   function parseValor(str) {
-    if (!str) return 0;
+    if (!str) return null;
     const limpo = str.trim().replace(/\./g, '').replace(',', '.');
-    return parseFloat(limpo) || 0;
+    const n = parseFloat(limpo);
+    return isNaN(n) ? null : n;
   }
 
-  // ── Normaliza data para formato legível ──────────────────
-  // Ex: "11 MAI" → "11/05"
-  function normalizarData(dia, mes) {
-    const meses = {
-      JAN: '01', FEV: '02', MAR: '03', ABR: '04',
-      MAI: '05', JUN: '06', JUL: '07', AGO: '08',
-      SET: '09', OUT: '10', NOV: '11', DEZ: '12'
-    };
-    return `${dia.padStart(2, '0')}/${meses[mes.toUpperCase()] || mes}`;
+  // ── Normaliza mês abreviado para número ──────────────────
+  function mesNum(mes) {
+    const m = { JAN:'01',FEV:'02',MAR:'03',ABR:'04',MAI:'05',JUN:'06',
+                JUL:'07',AGO:'08',SET:'09',OUT:'10',NOV:'11',DEZ:'12' };
+    return m[mes.toUpperCase()] || '00';
   }
 
   // ── Parser principal ─────────────────────────────────────
-  /**
-   * Processa o arquivo PDF e retorna apenas os cartões do primo.
-   * @param {File} file - arquivo PDF do input
-   * @param {Object} banco - configuração do banco (de config.js)
-   * @param {string} mesAno - ex: "05/2026"
-   * @returns {Object} resultado com cartoes[], totalGeral, mesAno, vencimento
-   */
   async function processar(file, banco, mesAno) {
-    const texto = await extrairTexto(file);
-    console.log('TEXTO EXTRAÍDO:', texto.substring(0, 3000));
+    const itens  = await extrairItens(file);
+    const linhas = agruparEmLinhas(itens);
 
-    // Divide o texto em seções por cartão
-    // Cada seção começa com o padrão do banco
     const resultado = {
       mesAno,
       banco: banco.id,
       vencimento: calcularVencimento(banco.diaVencimento, mesAno),
       cartoes: [],
-      totalGeral: 0,
-      textoCompleto: texto // mantém para debug
+      totalGeral: 0
     };
 
-    // Tokeniza o texto em linhas limpas
-    const linhas = texto
-      .split(/\n/)
-      .map(l => l.trim())
-      .filter(l => l.length > 0);
-
-    // Identifica quais finais de cartão pertencem ao primo
     const finaisPrimo = banco.cartoesPrimo.map(c => c.final);
 
-    let secaoAtual = null;
-    let lancamentosSecao = [];
-    let totalSecao = 0;
-    let dataAtual = null;
+    let secaoAtual     = null;
+    let lancamentos    = [];
+    let totalSecao     = 0;
+    let dataAtual      = null;
 
-    const processarSecao = () => {
-      if (!secaoAtual) return;
-      if (!finaisPrimo.includes(secaoAtual.final)) return;
-
-      const configCartao = banco.cartoesPrimo.find(c => c.final === secaoAtual.final);
+    const salvarSecao = () => {
+      if (!secaoAtual || !finaisPrimo.includes(secaoAtual.final)) return;
+      const cfg = banco.cartoesPrimo.find(c => c.final === secaoAtual.final);
       resultado.cartoes.push({
-        final: secaoAtual.final,
-        apelido: configCartao?.apelido || `Cartão ${secaoAtual.final}`,
-        titular: secaoAtual.titular,
-        lancamentos: lancamentosSecao,
-        subtotal: totalSecao
+        final:       secaoAtual.final,
+        apelido:     cfg?.apelido || `Cartão ${secaoAtual.final}`,
+        titular:     secaoAtual.titular,
+        lancamentos: lancamentos,
+        subtotal:    totalSecao
       });
       resultado.totalGeral += totalSecao;
     };
@@ -114,99 +123,91 @@ const PDFParser = (() => {
     for (let i = 0; i < linhas.length; i++) {
       const linha = linhas[i];
 
-      // ── Detecta início de nova seção de cartão ───────────
-      const matchSecao = linha.match(banco.padraoSecao);
-      if (matchSecao) {
-        processarSecao(); // fecha seção anterior
-        secaoAtual = {
-          final: matchSecao[1],
-          titular: matchSecao[2].trim()
-        };
-        lancamentosSecao = [];
-        totalSecao = 0;
-        dataAtual = null;
+      // ── Cabeçalho de seção ───────────────────────────────
+      // "Gastos referentes ao cartão: Final 9087 | GETLIO R D S FARIAS"
+      const mSecao = linha.match(/Gastos referentes ao cart[aã]o[:\s]+Final\s+(\d{4})\s*[|\|]\s*(.+)/i);
+      if (mSecao) {
+        salvarSecao();
+        secaoAtual  = { final: mSecao[1], titular: mSecao[2].trim() };
+        lancamentos = [];
+        totalSecao  = 0;
+        dataAtual   = null;
         continue;
       }
 
       if (!secaoAtual) continue;
 
-      // ── Detecta total da seção ───────────────────────────
-      const matchTotal = linha.match(banco.padraoTotal);
-      if (matchTotal) {
-        totalSecao = parseValor(matchTotal[1]);
+      // ── Total da seção ───────────────────────────────────
+      // "Valor da fatura: R$ 1.403,36"
+      const mTotal = linha.match(/Valor da fatura[:\s]+R\$\s*([\d.,]+)/i);
+      if (mTotal) {
+        const v = parseValor(mTotal[1]);
+        if (v !== null) totalSecao = v;
         continue;
       }
 
-      // ── Detecta data (DD MES) ────────────────────────────
-      // O PDF do Bradesco às vezes tem data na linha separada
-      const matchData = linha.match(/^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)$/i);
-      if (matchData) {
-        dataAtual = normalizarData(matchData[1], matchData[2]);
+      // ── Data isolada ─────────────────────────────────────
+      // "11 MAI" ou "11 MAI 2026"
+      const mData = linha.match(/^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)(\s+\d{4})?$/i);
+      if (mData) {
+        dataAtual = `${mData[1].padStart(2,'0')}/${mesNum(mData[2])}`;
         continue;
       }
 
-      // ── Detecta lançamento com data na mesma linha ───────
-      const matchLancComData = linha.match(
+      // ── Lançamento: data + descrição + valor na mesma linha ──
+      // "11 MAI MP *58PRODUTOS -84,95"
+      // "06 ABR MERCADOLIVRE*51PRODUTOS ( 02/10 ) 1.189,98"
+      const mLancComData = linha.match(
         /^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(.+?)\s+([-]?\d{1,3}(?:\.\d{3})*,\d{2})$/i
       );
-      if (matchLancComData) {
-        const data = normalizarData(matchLancComData[1], matchLancComData[2]);
-        const descricao = limparDescricao(matchLancComData[3]);
-        const valor = parseValor(matchLancComData[4]);
-        lancamentosSecao.push({ data, descricao, valor, tipo: valor < 0 ? 'estorno' : 'compra' });
-        dataAtual = data;
+      if (mLancComData) {
+        const data      = `${mLancComData[1].padStart(2,'0')}/${mesNum(mLancComData[2])}`;
+        const descricao = limparDesc(mLancComData[3]);
+        const valor     = parseValor(mLancComData[4]);
+        if (valor !== null && !ignorar(descricao)) {
+          lancamentos.push({ data, descricao, valor, tipo: valor < 0 ? 'estorno' : 'compra' });
+          dataAtual = data;
+        }
         continue;
       }
 
-      // ── Detecta lançamento sem data (usa data anterior) ──
-      const matchLancSemData = linha.match(
+      // ── Lançamento: apenas descrição + valor (sem data) ──
+      // "MERCADOLIVRE*MERCADOLIVRE 89,90"
+      const mLancSemData = linha.match(
         /^(.+?)\s+([-]?\d{1,3}(?:\.\d{3})*,\d{2})$/
       );
-      if (matchLancSemData && dataAtual) {
-        const descricao = limparDescricao(matchLancSemData[1]);
-        const valor = parseValor(matchLancSemData[2]);
-
-        // Ignora linhas de controle (pagamentos, saldo anterior, etc.)
-        const ignorar = ['SALDO ANTERIOR', 'PAGTO.', 'PAGAMENTO', 'Total da fatura'];
-        if (ignorar.some(ig => descricao.toUpperCase().includes(ig.toUpperCase()))) continue;
-
-        lancamentosSecao.push({ data: dataAtual, descricao, valor, tipo: valor < 0 ? 'estorno' : 'compra' });
+      if (mLancSemData && dataAtual) {
+        const descricao = limparDesc(mLancSemData[1]);
+        const valor     = parseValor(mLancSemData[2]);
+        if (valor !== null && !ignorar(descricao) && descricao.length > 2) {
+          lancamentos.push({ data: dataAtual, descricao, valor, tipo: valor < 0 ? 'estorno' : 'compra' });
+        }
         continue;
       }
     }
 
-    // Fecha última seção
-    processarSecao();
-
+    salvarSecao();
     return resultado;
   }
 
-  // ── Remove informações de parcelamento da descrição ──────
-  // Ex: "MERCADOLIVRE*PRODUTO ( 02/10 )" → "MERCADOLIVRE*PRODUTO"
-  // Mantém o parcelamento como metadado separado
-  function limparDescricao(descricao) {
-    return descricao
-      .replace(/\(\s*\d{2}\/\d{2}\s*\)/g, '')   // remove ( 02/10 )
-      .replace(/\s+/g, ' ')
-      .trim();
+  // ── Remove info de parcelamento da descrição ─────────────
+  function limparDesc(str) {
+    return str.replace(/\(\s*\d{2}\/\d{2}\s*\)/g, '').replace(/\s+/g, ' ').trim();
   }
 
-  // ── Extrai info de parcelamento ──────────────────────────
-  function extrairParcelamento(descricao) {
-    const match = descricao.match(/\(\s*(\d{2})\/(\d{2})\s*\)/);
-    if (!match) return null;
-    return { parcela: parseInt(match[1]), total: parseInt(match[2]) };
+  // ── Linhas que devem ser ignoradas ───────────────────────
+  function ignorar(desc) {
+    const bloqueios = ['SALDO ANTERIOR', 'PAGTO', 'PAGAMENTO', 'Total da fatura',
+                       'Valor da fatura', 'Data Lançamentos', 'Moeda de Origem'];
+    return bloqueios.some(b => desc.toUpperCase().includes(b.toUpperCase()));
   }
 
-  // ── Calcula data de vencimento para o mesAno ─────────────
-  // mesAno: "05/2026", diaVencimento: 5
-  // → vencimento no mês seguinte: "05/06/2026"
+  // ── Calcula vencimento ───────────────────────────────────
   function calcularVencimento(dia, mesAno) {
     const [mes, ano] = mesAno.split('/').map(Number);
-    let mesFatura = mes + 1;
-    let anoFatura = ano;
-    if (mesFatura > 12) { mesFatura = 1; anoFatura++; }
-    return `${String(dia).padStart(2, '0')}/${String(mesFatura).padStart(2, '0')}/${anoFatura}`;
+    let mf = mes + 1, af = ano;
+    if (mf > 12) { mf = 1; af++; }
+    return `${String(dia).padStart(2,'0')}/${String(mf).padStart(2,'0')}/${af}`;
   }
 
   return { processar, calcularVencimento };
