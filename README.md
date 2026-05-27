@@ -56,6 +56,10 @@ Antes de publicar, edite a função `setupSheet` em `Code.gs` e mude:
 - `'negapay@admin'` → senha do Pinho
 - `'negapay@primo'` → senha do Getlio
 
+Também edite no topo de `Code.gs`:
+- `EMAIL_PRIMO` → email que receberá a notificação de fatura disponível
+- `EMAIL_ADMIN` → email do Pinho que receberá uma cópia da notificação
+
 Ou mude diretamente na planilha criada (aba `usuarios`, coluna `senhaHash` — use a função `hashSenha()` para gerar o hash correto).
 
 ### 4. Publicar o Apps Script como Web App

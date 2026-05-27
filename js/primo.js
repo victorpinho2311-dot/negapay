@@ -17,7 +17,7 @@ const Primo = (() => {
   // ── Header com saudação ──────────────────────────────────
   function renderHeader() {
     const hora = new Date().getHours();
-    document.getElementById('header-greeting').textContent =
+    document.getElementById('primo-header-greeting').textContent =
       NEGAPAY_CONFIG.textos.saudacaoPrimo(hora);
   }
 

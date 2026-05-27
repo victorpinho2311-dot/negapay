@@ -16,7 +16,7 @@ const Admin = (() => {
 
   function renderHeader() {
     const hora = new Date().getHours();
-    document.getElementById('header-greeting').textContent =
+    document.getElementById('admin-header-greeting').textContent =
       NEGAPAY_CONFIG.textos.saudacaoAdmin(hora);
   }
 
@@ -247,6 +247,11 @@ const Admin = (() => {
               ${f.pago ? '✓ Pago' : statusTexto(f.vencimento)}
             </span>
             <button
+              class="btn-notificacao"
+              onclick="Admin._enviarNotificacao('${f.faturaId}', this)"
+              title="Enviar notificação por email"
+            >Enviar notificação</button>
+            <button
               onclick="Admin._confirmarExcluir('${f.faturaId}', '${formatarMesAno(f.mesAno)}')"
               title="Excluir fatura"
               style="background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:var(--text-muted);font-size:1rem;transition:all 0.2s;line-height:1"
@@ -260,6 +265,32 @@ const Admin = (() => {
     } catch (err) {
       document.getElementById('historico-list').innerHTML =
         `<div style="color:var(--danger);text-align:center;padding:1rem;font-size:0.85rem">Erro ao carregar histórico</div>`;
+    }
+  }
+
+  async function _enviarNotificacao(faturaId, btn) {
+    if (!faturaId || !btn) return;
+
+    const textoOriginal = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+
+    try {
+      const appUrl = window.location.href.split('#')[0];
+      const res = await API.post({ acao: 'enviarNotificacaoFatura', faturaId, appUrl });
+
+      if (res.ok) {
+        UI.toast('Notificação enviada por email.', 'success');
+        btn.textContent = 'Enviado';
+      } else {
+        UI.toast(res.erro || 'Erro ao enviar notificação.', 'error');
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    } catch (err) {
+      UI.toast('Erro de conexão ao enviar notificação.', 'error');
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
     }
   }
 
@@ -389,7 +420,7 @@ const Admin = (() => {
     init, renderHistorico,
     _selecionarBanco, _onFileSelect,
     _cancelarPreview, _publicarFatura,
-    _verFatura, _confirmarExcluir
+    _verFatura, _confirmarExcluir, _enviarNotificacao
   };
 
 })();
