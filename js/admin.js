@@ -282,6 +282,7 @@ const Admin = (() => {
       if (res.ok) {
         UI.toast('Notificação enviada por email.', 'success');
         btn.textContent = 'Enviado';
+        btn.classList.add('enviado');
       } else {
         UI.toast(res.erro || 'Erro ao enviar notificação.', 'error');
         btn.disabled = false;

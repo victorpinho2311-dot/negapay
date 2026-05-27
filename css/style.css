@@ -600,10 +600,22 @@ a { color: inherit; text-decoration: none; }
   background: #DBEAFE;
   transform: translateY(-1px);
 }
+.btn-notificacao.enviado {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+  box-shadow: 0 4px 14px rgba(16,185,129,0.24);
+}
+.btn-notificacao.enviado:hover {
+  background: var(--success);
+}
 .btn-notificacao:disabled {
   opacity: 0.65;
   transform: none;
   cursor: default;
+}
+.btn-notificacao.enviado:disabled {
+  opacity: 1;
 }
 
 /* ── Lembrete iOS ──────────────────────────────────────────── */
