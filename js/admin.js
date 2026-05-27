@@ -247,10 +247,11 @@ const Admin = (() => {
               ${f.pago ? '✓ Pago' : statusTexto(f.vencimento)}
             </span>
             <button
-              class="btn-notificacao"
+              class="btn-notificacao ${f.notificadoEm ? 'enviado' : ''}"
               onclick="Admin._enviarNotificacao('${f.faturaId}', this)"
-              title="Enviar notificação por email"
-            >Enviar notificação</button>
+              title="${f.notificadoEm ? 'Notificação já enviada' : 'Enviar notificação por email'}"
+              ${f.notificadoEm ? 'disabled' : ''}
+            >${f.notificadoEm ? 'Enviado' : 'Enviar notificação'}</button>
             <button
               onclick="Admin._confirmarExcluir('${f.faturaId}', '${formatarMesAno(f.mesAno)}')"
               title="Excluir fatura"
@@ -280,7 +281,7 @@ const Admin = (() => {
       const res = await API.post({ acao: 'enviarNotificacaoFatura', faturaId, appUrl });
 
       if (res.ok) {
-        UI.toast('Notificação enviada por email.', 'success');
+        UI.toast(res.jaEnviado ? 'Notificação já havia sido enviada.' : 'Notificação enviada por email.', 'success');
         btn.textContent = 'Enviado';
         btn.classList.add('enviado');
       } else {

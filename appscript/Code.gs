@@ -11,11 +11,14 @@ const ABA_USUARIOS    = 'usuarios';
 const ABA_FATURAS     = 'faturas';
 const ABA_LANCAMENTOS = 'lancamentos';
 
+const COL_FATURA_NOTIFICADO_EM   = 8;
+const COL_FATURA_NOTIFICADO_PARA = 9;
+
 function doGet(e) {
   try {
     const payload = e.parameter.payload;
     if (!payload) {
-      return resposta({ ok: true, servico: 'NegaPay API', versao: '1.3' });
+      return resposta({ ok: true, servico: 'NegaPay API', versao: '1.4' });
     }
 
     const body = JSON.parse(decodeURIComponent(payload));
@@ -105,6 +108,7 @@ function salvarFatura(body) {
 
   const sheetFaturas = getAba(ABA_FATURAS);
   const sheetLanc    = getAba(ABA_LANCAMENTOS);
+  garantirColunasFaturas(sheetFaturas);
 
   const faturasDados = sheetFaturas.getDataRange().getValues();
   for (let i = faturasDados.length - 1; i >= 1; i--) {
@@ -115,7 +119,7 @@ function salvarFatura(body) {
 
   sheetFaturas.appendRow([
     faturaId, mesAno, vencimento, totalGeral,
-    false, '', new Date().toISOString()
+    false, '', new Date().toISOString(), '', ''
   ]);
 
   const lancDados = sheetLanc.getDataRange().getValues();
@@ -140,13 +144,16 @@ function listarFaturas(body) {
   const auth = validarToken(body);
   if (!auth.ok) return auth;
 
-  const dados = getAba(ABA_FATURAS).getDataRange().getValues();
+  const sheet = getAba(ABA_FATURAS);
+  garantirColunasFaturas(sheet);
+
+  const dados = sheet.getDataRange().getValues();
   const faturas = [];
 
   for (let i = 1; i < dados.length; i++) {
-    const [faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm] = dados[i];
+    const [faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm, notificadoEm, notificadoPara] = dados[i];
     if (!faturaId) continue;
-    faturas.push({ faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm });
+    faturas.push({ faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm, notificadoEm, notificadoPara });
   }
 
   faturas.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
@@ -158,7 +165,10 @@ function getFatura(body) {
   if (!auth.ok) return auth;
 
   const { faturaId } = body;
-  const fatDados = getAba(ABA_FATURAS).getDataRange().getValues();
+  const sheetFaturas = getAba(ABA_FATURAS);
+  garantirColunasFaturas(sheetFaturas);
+
+  const fatDados = sheetFaturas.getDataRange().getValues();
   let fatura = null;
 
   for (let i = 1; i < fatDados.length; i++) {
@@ -170,7 +180,9 @@ function getFatura(body) {
         totalGeral:    fatDados[i][3],
         pago:          fatDados[i][4],
         dataPagamento: fatDados[i][5],
-        criadoEm:      fatDados[i][6]
+        criadoEm:      fatDados[i][6],
+        notificadoEm:  fatDados[i][7],
+        notificadoPara: fatDados[i][8]
       };
       break;
     }
@@ -201,6 +213,7 @@ function marcarPago(body) {
 
   const { faturaId } = body;
   const sheet = getAba(ABA_FATURAS);
+  garantirColunasFaturas(sheet);
   const dados = sheet.getDataRange().getValues();
 
   for (let i = 1; i < dados.length; i++) {
@@ -223,6 +236,7 @@ function excluirFatura(body) {
 
   // Remove da aba faturas
   const sheetFaturas = getAba(ABA_FATURAS);
+  garantirColunasFaturas(sheetFaturas);
   const fatDados = sheetFaturas.getDataRange().getValues();
   for (let i = fatDados.length - 1; i >= 1; i--) {
     if (fatDados[i][0] === faturaId) sheetFaturas.deleteRow(i + 1);
@@ -244,6 +258,16 @@ function enviarNotificacaoFatura(body) {
   if (auth.perfil !== 'admin') return { ok: false, erro: 'Sem permissão' };
   if (!EMAIL_PRIMO || EMAIL_PRIMO.includes('@exemplo.com')) {
     return { ok: false, erro: 'Configure o EMAIL_PRIMO no Code.gs antes de enviar.' };
+  }
+
+  const sheetFaturas = getAba(ABA_FATURAS);
+  garantirColunasFaturas(sheetFaturas);
+  const faturaRow = encontrarLinhaFatura(sheetFaturas, body.faturaId);
+  if (!faturaRow) return { ok: false, erro: 'Fatura não encontrada' };
+
+  const notificadoEmAtual = sheetFaturas.getRange(faturaRow, COL_FATURA_NOTIFICADO_EM).getValue();
+  if (notificadoEmAtual) {
+    return { ok: true, jaEnviado: true, notificadoEm: notificadoEmAtual };
   }
 
   const faturaRes = getFatura(body);
@@ -274,7 +298,11 @@ function enviarNotificacaoFatura(body) {
     name: 'NegaPay'
   });
 
-  return { ok: true };
+  const notificadoEm = new Date().toISOString();
+  sheetFaturas.getRange(faturaRow, COL_FATURA_NOTIFICADO_EM).setValue(notificadoEm);
+  sheetFaturas.getRange(faturaRow, COL_FATURA_NOTIFICADO_PARA).setValue(`${EMAIL_PRIMO}, ${EMAIL_ADMIN}`);
+
+  return { ok: true, notificadoEm };
 }
 
 function montarEmailFatura({ mesAno, valor, vencimento, appUrl }) {
@@ -325,7 +353,7 @@ function setupSheet() {
   abaU.appendRow(['getlio', hashSenha('negapay@primo'), 'primo', true, '', '']);
 
   const abaF = ss.insertSheet(ABA_FATURAS);
-  abaF.appendRow(['faturaId', 'mesAno', 'vencimento', 'totalGeral', 'pago', 'dataPagamento', 'criadoEm']);
+  abaF.appendRow(['faturaId', 'mesAno', 'vencimento', 'totalGeral', 'pago', 'dataPagamento', 'criadoEm', 'notificadoEm', 'notificadoPara']);
 
   const abaL = ss.insertSheet(ABA_LANCAMENTOS);
   abaL.appendRow(['id', 'faturaId', 'cartaoFinal', 'data', 'descricao', 'valor', 'tipo']);
@@ -340,6 +368,25 @@ function setupSheet() {
 // ─────────────────────────────────────────
 function getAba(nome) {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(nome);
+}
+
+function garantirColunasFaturas(sheet) {
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), COL_FATURA_NOTIFICADO_PARA)).getValues()[0];
+  if (headers[COL_FATURA_NOTIFICADO_EM - 1] !== 'notificadoEm') {
+    sheet.getRange(1, COL_FATURA_NOTIFICADO_EM).setValue('notificadoEm');
+  }
+  if (headers[COL_FATURA_NOTIFICADO_PARA - 1] !== 'notificadoPara') {
+    sheet.getRange(1, COL_FATURA_NOTIFICADO_PARA).setValue('notificadoPara');
+  }
+}
+
+function encontrarLinhaFatura(sheet, faturaId) {
+  if (!faturaId) return null;
+  const dados = sheet.getDataRange().getValues();
+  for (let i = 1; i < dados.length; i++) {
+    if (dados[i][0] === faturaId) return i + 1;
+  }
+  return null;
 }
 
 function resposta(obj) {
