@@ -18,7 +18,7 @@ function doGet(e) {
   try {
     const payload = e.parameter.payload;
     if (!payload) {
-      return resposta({ ok: true, servico: 'NegaPay API', versao: '1.4' });
+      return resposta({ ok: true, servico: 'NegaPay API', versao: '1.5' });
     }
 
     const body = JSON.parse(decodeURIComponent(payload));
@@ -400,6 +400,34 @@ function encontrarLinhaFatura(sheet, faturaId) {
   return null;
 }
 
+function corrigirVencimentosExistentes() {
+  const sheet = getAba(ABA_FATURAS);
+  garantirColunasFaturas(sheet);
+
+  const dados = sheet.getDataRange().getValues();
+  const corrigidos = [];
+
+  for (let i = 1; i < dados.length; i++) {
+    const faturaId = dados[i][0];
+    const mesAno = dados[i][1];
+    const vencimento = dados[i][2];
+    if (!faturaId || !vencimento) continue;
+
+    const vencimentoTexto = normalizarVencimentoTexto(vencimento, mesAno);
+    if (vencimentoTexto && String(vencimento) !== vencimentoTexto) {
+      salvarVencimentoComoTexto(sheet, i + 1, vencimentoTexto);
+      corrigidos.push({
+        linha: i + 1,
+        faturaId,
+        antes: String(vencimento),
+        depois: vencimentoTexto
+      });
+    }
+  }
+
+  return { ok: true, corrigidos };
+}
+
 function salvarVencimentoComoTexto(sheet, linha, vencimento) {
   sheet.getRange(linha, 3).setNumberFormat('@').setValue(vencimento);
 }
@@ -448,13 +476,48 @@ function normalizarPartesVencimento(dia, mes, ano, mesAno) {
 }
 
 function getMesVencimentoEsperado(mesAno) {
-  const partes = String(mesAno || '').split('/');
-  if (partes.length < 2) return null;
-
-  const mes = parseInt(partes[0], 10);
+  const mes = getMesReferencia(mesAno);
   if (!mes || mes < 1 || mes > 12) return null;
 
   return mes === 12 ? 1 : mes + 1;
+}
+
+function getMesReferencia(mesAno) {
+  if (!mesAno) return null;
+
+  if (Object.prototype.toString.call(mesAno) === '[object Date]' && !isNaN(mesAno)) {
+    return mesAno.getUTCMonth() + 1;
+  }
+
+  const texto = String(mesAno).trim();
+
+  if (texto.match(/^\d{4}-/) || texto.includes('T')) {
+    const data = new Date(texto);
+    if (!isNaN(data)) return data.getUTCMonth() + 1;
+  }
+
+  const mesAnoNumerico = texto.match(/^(\d{1,2})\/(\d{4})$/);
+  if (mesAnoNumerico) return parseInt(mesAnoNumerico[1], 10);
+
+  const dataBrasileira = texto.match(/^\d{1,2}\/(\d{1,2})\/\d{4}$/);
+  if (dataBrasileira) return parseInt(dataBrasileira[1], 10);
+
+  const meses = {
+    janeiro: 1, jan: 1,
+    fevereiro: 2, fev: 2,
+    marco: 3, março: 3, mar: 3,
+    abril: 4, abr: 4,
+    maio: 5, mai: 5,
+    junho: 6, jun: 6,
+    julho: 7, jul: 7,
+    agosto: 8, ago: 8,
+    setembro: 9, set: 9,
+    outubro: 10, out: 10,
+    novembro: 11, nov: 11,
+    dezembro: 12, dez: 12
+  };
+  const nomeMes = texto.toLowerCase().match(/([a-zç]+)/);
+  return nomeMes ? meses[nomeMes[1]] || null : null;
 }
 
 function formatarDataBrasileira(dia, mes, ano) {

@@ -49,7 +49,7 @@ const Primo = (() => {
 
       if (!detalhes.ok) throw new Error(detalhes.erro);
 
-      faturaAtual = detalhes.fatura;
+      faturaAtual = normalizarFatura(detalhes.fatura);
       renderFaturaAtual(faturaAtual);
 
     } catch (err) {
@@ -261,7 +261,7 @@ const Primo = (() => {
       }
 
       // Pula a primeira (já exibida no card atual)
-      const anteriores = res.faturas.slice(1);
+      const anteriores = res.faturas.slice(1).map(normalizarFatura);
 
       container.innerHTML = `
         <div class="card">
@@ -288,6 +288,97 @@ const Primo = (() => {
   }
 
   // ── Helpers ──────────────────────────────────────────────
+  function normalizarFatura(fatura) {
+    if (!fatura) return fatura;
+    return {
+      ...fatura,
+      vencimento: normalizarVencimento(fatura.vencimento, fatura.mesAno)
+    };
+  }
+
+  function normalizarVencimento(vencimento, mesAno) {
+    const partes = getPartesData(vencimento);
+    if (!partes) return vencimento || '';
+
+    const mesEsperado = getMesVencimentoEsperado(mesAno);
+    if (mesEsperado && partes.mes !== mesEsperado && partes.dia === mesEsperado) {
+      return formatarDataBR(partes.mes, partes.dia, partes.ano);
+    }
+
+    return formatarDataBR(partes.dia, partes.mes, partes.ano);
+  }
+
+  function getPartesData(valor) {
+    if (!valor) return null;
+
+    if (Object.prototype.toString.call(valor) === '[object Date]' && !isNaN(valor)) {
+      return { dia: valor.getUTCDate(), mes: valor.getUTCMonth() + 1, ano: valor.getUTCFullYear() };
+    }
+
+    const texto = String(valor).trim();
+    const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) {
+      return { dia: parseInt(br[1], 10), mes: parseInt(br[2], 10), ano: parseInt(br[3], 10) };
+    }
+
+    if (texto.includes('T') || texto.match(/^\d{4}-/)) {
+      const data = new Date(texto);
+      if (!isNaN(data)) return { dia: data.getUTCDate(), mes: data.getUTCMonth() + 1, ano: data.getUTCFullYear() };
+    }
+
+    return null;
+  }
+
+  function getMesVencimentoEsperado(mesAno) {
+    const mes = getMesReferencia(mesAno);
+    if (!mes || mes < 1 || mes > 12) return null;
+    return mes === 12 ? 1 : mes + 1;
+  }
+
+  function getMesReferencia(mesAno) {
+    if (!mesAno) return null;
+
+    if (Object.prototype.toString.call(mesAno) === '[object Date]' && !isNaN(mesAno)) {
+      return mesAno.getUTCMonth() + 1;
+    }
+
+    const texto = String(mesAno).trim();
+
+    if (texto.includes('T') || texto.match(/^\d{4}-/)) {
+      const data = new Date(texto);
+      if (!isNaN(data)) return data.getUTCMonth() + 1;
+    }
+
+    const mesAnoNumerico = texto.match(/^(\d{1,2})\/(\d{4})$/);
+    if (mesAnoNumerico) return parseInt(mesAnoNumerico[1], 10);
+
+    const dataBrasileira = texto.match(/^\d{1,2}\/(\d{1,2})\/\d{4}$/);
+    if (dataBrasileira) return parseInt(dataBrasileira[1], 10);
+
+    const meses = {
+      janeiro: 1, jan: 1,
+      fevereiro: 2, fev: 2,
+      marco: 3, março: 3, mar: 3,
+      abril: 4, abr: 4,
+      maio: 5, mai: 5,
+      junho: 6, jun: 6,
+      julho: 7, jul: 7,
+      agosto: 8, ago: 8,
+      setembro: 9, set: 9,
+      outubro: 10, out: 10,
+      novembro: 11, nov: 11,
+      dezembro: 12, dez: 12
+    };
+    const nomeMes = texto.toLowerCase().match(/([a-zç]+)/);
+    return nomeMes ? meses[nomeMes[1]] || null : null;
+  }
+
+  function formatarDataBR(dia, mes, ano) {
+    return String(dia).padStart(2, '0') + '/' +
+      String(mes).padStart(2, '0') + '/' +
+      String(ano);
+  }
+
   function formatarMoeda(valor) {
     return 'R$ ' + Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
