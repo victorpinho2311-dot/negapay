@@ -105,6 +105,7 @@ function salvarFatura(body) {
 
   const { fatura } = body;
   const { mesAno, vencimento, cartoes, totalGeral } = fatura;
+  const vencimentoTexto = normalizarVencimentoTexto(vencimento, mesAno);
 
   const sheetFaturas = getAba(ABA_FATURAS);
   const sheetLanc    = getAba(ABA_LANCAMENTOS);
@@ -117,10 +118,12 @@ function salvarFatura(body) {
 
   const faturaId = 'FAT_' + mesAno.replace('/', '_') + '_' + Date.now();
 
-  sheetFaturas.appendRow([
-    faturaId, mesAno, vencimento, totalGeral,
+  const novaLinha = sheetFaturas.getLastRow() + 1;
+  sheetFaturas.getRange(novaLinha, 2, 1, 2).setNumberFormat('@');
+  sheetFaturas.getRange(novaLinha, 1, 1, 9).setValues([[
+    faturaId, mesAno, vencimentoTexto, totalGeral,
     false, '', new Date().toISOString(), '', ''
-  ]);
+  ]]);
 
   const lancDados = sheetLanc.getDataRange().getValues();
   for (let i = lancDados.length - 1; i >= 1; i--) {
@@ -153,7 +156,11 @@ function listarFaturas(body) {
   for (let i = 1; i < dados.length; i++) {
     const [faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm, notificadoEm, notificadoPara] = dados[i];
     if (!faturaId) continue;
-    faturas.push({ faturaId, mesAno, vencimento, totalGeral, pago, dataPagamento, criadoEm, notificadoEm, notificadoPara });
+    const vencimentoTexto = normalizarVencimentoTexto(vencimento, mesAno);
+    if (vencimentoTexto && vencimento !== vencimentoTexto) {
+      salvarVencimentoComoTexto(sheet, i + 1, vencimentoTexto);
+    }
+    faturas.push({ faturaId, mesAno, vencimento: vencimentoTexto, totalGeral, pago, dataPagamento, criadoEm, notificadoEm, notificadoPara });
   }
 
   faturas.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
@@ -173,10 +180,14 @@ function getFatura(body) {
 
   for (let i = 1; i < fatDados.length; i++) {
     if (fatDados[i][0] === faturaId) {
+      const vencimentoTexto = normalizarVencimentoTexto(fatDados[i][2], fatDados[i][1]);
+      if (vencimentoTexto && fatDados[i][2] !== vencimentoTexto) {
+        salvarVencimentoComoTexto(sheetFaturas, i + 1, vencimentoTexto);
+      }
       fatura = {
         faturaId:      fatDados[i][0],
         mesAno:        fatDados[i][1],
-        vencimento:    fatDados[i][2],
+        vencimento:    vencimentoTexto,
         totalGeral:    fatDados[i][3],
         pago:          fatDados[i][4],
         dataPagamento: fatDados[i][5],
@@ -387,6 +398,60 @@ function encontrarLinhaFatura(sheet, faturaId) {
     if (dados[i][0] === faturaId) return i + 1;
   }
   return null;
+}
+
+function salvarVencimentoComoTexto(sheet, linha, vencimento) {
+  sheet.getRange(linha, 3).setNumberFormat('@').setValue(vencimento);
+}
+
+function normalizarVencimentoTexto(vencimento, mesAno) {
+  if (!vencimento) return '';
+
+  if (Object.prototype.toString.call(vencimento) === '[object Date]' && !isNaN(vencimento)) {
+    return normalizarDataVencimento(vencimento, mesAno);
+  }
+
+  const texto = String(vencimento).trim();
+  const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (br) {
+    return `${br[1].padStart(2, '0')}/${br[2].padStart(2, '0')}/${br[3]}`;
+  }
+
+  if (texto.match(/^\d{4}-/) || texto.includes('T')) {
+    const data = new Date(texto);
+    if (!isNaN(data)) return normalizarDataVencimento(data, mesAno);
+  }
+
+  return texto;
+}
+
+function normalizarDataVencimento(data, mesAno) {
+  const dia = data.getUTCDate();
+  const mes = data.getUTCMonth() + 1;
+  const ano = data.getUTCFullYear();
+  const mesEsperado = getMesVencimentoEsperado(mesAno);
+
+  if (mesEsperado && mes !== mesEsperado && dia === mesEsperado) {
+    return formatarDataBrasileira(mes, dia, ano);
+  }
+
+  return formatarDataBrasileira(dia, mes, ano);
+}
+
+function getMesVencimentoEsperado(mesAno) {
+  const partes = String(mesAno || '').split('/');
+  if (partes.length < 2) return null;
+
+  const mes = parseInt(partes[0], 10);
+  if (!mes || mes < 1 || mes > 12) return null;
+
+  return mes === 12 ? 1 : mes + 1;
+}
+
+function formatarDataBrasileira(dia, mes, ano) {
+  return String(dia).padStart(2, '0') + '/' +
+    String(mes).padStart(2, '0') + '/' +
+    String(ano);
 }
 
 function resposta(obj) {
