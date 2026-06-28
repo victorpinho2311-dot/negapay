@@ -414,7 +414,12 @@ function normalizarVencimentoTexto(vencimento, mesAno) {
   const texto = String(vencimento).trim();
   const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (br) {
-    return `${br[1].padStart(2, '0')}/${br[2].padStart(2, '0')}/${br[3]}`;
+    return normalizarPartesVencimento(
+      parseInt(br[1], 10),
+      parseInt(br[2], 10),
+      parseInt(br[3], 10),
+      mesAno
+    );
   }
 
   if (texto.match(/^\d{4}-/) || texto.includes('T')) {
@@ -429,6 +434,10 @@ function normalizarDataVencimento(data, mesAno) {
   const dia = data.getUTCDate();
   const mes = data.getUTCMonth() + 1;
   const ano = data.getUTCFullYear();
+  return normalizarPartesVencimento(dia, mes, ano, mesAno);
+}
+
+function normalizarPartesVencimento(dia, mes, ano, mesAno) {
   const mesEsperado = getMesVencimentoEsperado(mesAno);
 
   if (mesEsperado && mes !== mesEsperado && dia === mesEsperado) {
