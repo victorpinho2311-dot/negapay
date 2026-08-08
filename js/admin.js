@@ -32,12 +32,76 @@ const Admin = (() => {
       cartoesConhecidos = {};
       if (res.ok) {
         res.cartoes.forEach(c => {
-          cartoesConhecidos[String(c.final)] = { dono: c.dono, apelido: c.apelido };
+          cartoesConhecidos[String(c.final)] = {
+            dono: c.dono, apelido: c.apelido, titular: c.titular
+          };
         });
       }
     } catch (e) {
       cartoesConhecidos = {};
     }
+  }
+
+  // ── Sugestão de dono para cartão novo ────────────────────
+  //
+  //  O banco escreve o mesmo nome de jeitos diferentes conforme o
+  //  produto: "GETLIO R D S FARIAS" na Infinite e "GETULIO FARIAS"
+  //  na Æternum. Comparar string crua não serve; comparamos palavra
+  //  a palavra, aceitando uma letra de diferença.
+  //
+  //  Isto só SUGERE — quem decide é você. Um cartão novo continua
+  //  travando a publicação até ser confirmado.
+
+  function normalizarNome(s) {
+    return String(s || '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toUpperCase().replace(/[^A-Z ]/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  function palavras(s) {
+    return normalizarNome(s).split(' ').filter(p => p.length >= 3);
+  }
+
+  function distancia(a, b) {
+    if (a === b) return 0;
+    const m = a.length, n = b.length;
+    let linha = Array.from({ length: n + 1 }, (_, i) => i);
+    for (let i = 1; i <= m; i++) {
+      let ant = linha[0];
+      linha[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const tmp = linha[j];
+        linha[j] = Math.min(
+          linha[j] + 1,
+          linha[j - 1] + 1,
+          ant + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+        ant = tmp;
+      }
+    }
+    return linha[n];
+  }
+
+  function sugerirDono(titular) {
+    const alvo = palavras(titular);
+    if (!alvo.length) return null;
+
+    let melhor = null;
+    Object.keys(cartoesConhecidos).forEach(final => {
+      const info = cartoesConhecidos[final];
+      if (!info.titular) return;
+      const ref = palavras(info.titular);
+      let pontos = 0;
+      alvo.forEach(a => ref.forEach(b => {
+        if (a === b) pontos += 2;
+        else if (Math.abs(a.length - b.length) <= 1 && distancia(a, b) <= 1) pontos += 1;
+      }));
+      if (pontos >= 2 && (!melhor || pontos > melhor.pontos)) {
+        melhor = { dono: info.dono, pontos, titular: info.titular, final };
+      }
+    });
+    return melhor;
   }
 
   // ── Upload ───────────────────────────────────────────────
@@ -201,18 +265,26 @@ const Admin = (() => {
           De quem é? Enquanto não disser, não publico — foi assim que o
           cartão da Æternum virou R$ 0,00 sem ninguém perceber.
         </div>
-        ${lista.map(c => `
+        ${lista.map(c => {
+          const s = sugerirDono(c.titular);
+          return `
           <div class="cartao-novo">
             <div>
               <div class="cartao-novo-final">•••• ${Fmt.txt(c.final)}</div>
               <div class="cartao-novo-titular">${Fmt.txt(c.titular)} · ${Fmt.moeda(c.subtotal)}</div>
+              ${s ? `<div class="cartao-novo-sugestao">
+                       Parece ser do mesmo titular do cartão ••••${Fmt.txt(s.final)}
+                       (${Fmt.txt(s.titular)})
+                     </div>` : ''}
             </div>
             <div class="cartao-novo-botoes">
-              <button class="btn-mini" onclick="Admin._definirDono('${Fmt.txt(c.final)}', 'admin', this)">Meu</button>
-              <button class="btn-mini btn-mini-primo" onclick="Admin._definirDono('${Fmt.txt(c.final)}', 'primo', this)">${Fmt.txt(NEGAPAY_CONFIG.primo.nome)}</button>
+              <button class="btn-mini ${s && s.dono === 'admin' ? 'btn-sugerido' : ''}"
+                      onclick="Admin._definirDono('${Fmt.txt(c.final)}', 'admin', this)">Meu</button>
+              <button class="btn-mini btn-mini-primo ${s && s.dono === 'primo' ? 'btn-sugerido' : ''}"
+                      onclick="Admin._definirDono('${Fmt.txt(c.final)}', 'primo', this)">${Fmt.txt(NEGAPAY_CONFIG.primo.nome)}</button>
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>`;
   }
 
@@ -260,7 +332,7 @@ const Admin = (() => {
         titular: cartao ? cartao.titular : ''
       });
       if (res.ok) {
-        cartoesConhecidos[String(final)] = { dono, apelido: '' };
+        cartoesConhecidos[String(final)] = { dono, apelido: '', titular: cartao ? cartao.titular : '' };
         UI.toast(`Cartão ${final} salvo como ${dono === 'primo' ? NEGAPAY_CONFIG.primo.nome : 'seu'}.`, 'success');
         renderPreview(faturaLida);
       } else {
@@ -539,7 +611,8 @@ const Admin = (() => {
     init, renderHistorico,
     _selecionar, _cancelar, _publicar, _ver,
     _notificar, _confirmarExcluir, _definirDono,
-    _alternarPago, _quitarAte
+    _alternarPago, _quitarAte,
+    _sugerirDono: sugerirDono
   };
 
 })();

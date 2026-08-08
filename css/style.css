@@ -911,3 +911,12 @@ a { color: inherit; text-decoration: none; }
 /* badge clicável — o admin alterna pago/em aberto */
 .badge-acao { cursor: pointer; transition: var(--transition); }
 .badge-acao:hover { filter: brightness(0.94); }
+
+/* sugestão de dono para cartão novo */
+.cartao-novo-sugestao {
+  font-size: 0.74rem; color: var(--brand-blue);
+  font-weight: 700; margin-top: 0.2rem;
+}
+.btn-sugerido {
+  box-shadow: 0 0 0 2px var(--brand-blue);
+}
