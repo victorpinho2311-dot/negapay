@@ -61,7 +61,17 @@ Não existe comando de build. Duas partes independentes:
 
 1. **Frontend** — `git push` para `main`; o GitHub Pages publica em `https://victorpinho2311-dot.github.io/negapay/`.
    **Sempre atualize o cache-busting** (`?v=AAAAMMDD-N`) nas tags `<script>`/`<link>` do [index.html](index.html#L142-L146) ao mexer em `js/` ou `css/` — o Safari em PWA guarda os assets agressivamente. O `sw.js` já foi neutralizado (não cacheia nada) justamente por isso.
-2. **Backend** — `clasp push` envia `appscript/` para o projeto Apps Script (`.clasp.json`). Depois é preciso **criar uma nova implantação** no editor do Apps Script; a URL da implantação vai em `apiUrl` no [js/config.js](js/config.js#L11). Editar o código sem reimplantar não muda nada em produção.
+2. **Backend** — `clasp push` envia `appscript/` para o projeto Apps Script (`.clasp.json`). Depois é preciso **criar uma nova versão da implantação** (*Implantar → Gerenciar implantações → lápis → Nova versão*), o que mantém a mesma URL. `clasp push` sozinho não muda nada em produção: a implantação serve a versão fixada.
+
+   ⚠️ **O projeto é avulso, não vinculado à planilha.** Ele abre a planilha por `SpreadsheetApp.openById(SHEET_ID)`. Abrir *Extensões → Apps Script* pela planilha leva a **outro** projeto — um resquício antigo, sem uso, que parece o nosso desatualizado. Use `clasp open-script`, ou:
+
+   `https://script.google.com/d/1mnSkeLgReHFo4tO353scm-IqXwmMKHb7ydf92B6dKGrfp_jMG9a82Dj-/edit`
+
+   Para saber o que está realmente no ar, sonde a API em vez de olhar o editor — uma ação recente responde `Token ausente` se existe, e `Ação desconhecida` se o código é velho:
+
+   ```bash
+   curl -sL "<apiUrl>?payload=$(python3 -c "import urllib.parse,json;print(urllib.parse.quote(json.dumps({'acao':'quitarAte'})))")"
+   ```
 
 ## Configuração
 
