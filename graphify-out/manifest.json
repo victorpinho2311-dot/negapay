@@ -5,9 +5,9 @@
     "semantic_hash": "fbaa0df0b50f9c5d0cf73097b62ad47e"
   },
   "appscript/Code.js": {
-    "mtime": 1786144597.0254693,
-    "ast_hash": "b238a5cb35cc0070304c1717b3ca6540",
-    "semantic_hash": "b238a5cb35cc0070304c1717b3ca6540"
+    "mtime": 1786151616.1419744,
+    "ast_hash": "beb4e28d41952ffa6cfaa90191ee2cfc",
+    "semantic_hash": "beb4e28d41952ffa6cfaa90191ee2cfc"
   },
   "appscript/appsscript.json": {
     "mtime": 1782656987.4231887,
@@ -15,9 +15,9 @@
     "semantic_hash": "419329da8f1b979de5fbff579a85f92b"
   },
   "js/admin.js": {
-    "mtime": 1786145113.9901175,
-    "ast_hash": "640a8f99a1d583ef5565d0a71a0189d0",
-    "semantic_hash": "640a8f99a1d583ef5565d0a71a0189d0"
+    "mtime": 1786153384.056642,
+    "ast_hash": "cf3413e68809e252081d4150cd288164",
+    "semantic_hash": "cf3413e68809e252081d4150cd288164"
   },
   "js/auth.js": {
     "mtime": 1786145113.9902892,
@@ -45,9 +45,9 @@
     "semantic_hash": "3896b84f68d0d2d7462ac4fda1c28b62"
   },
   "CLAUDE.md": {
-    "mtime": 1786145295.606287,
-    "ast_hash": "4e72f534475faabc27b96ec1b819434d",
-    "semantic_hash": "4e72f534475faabc27b96ec1b819434d"
+    "mtime": 1786146086.1036751,
+    "ast_hash": "5551cf48f5693b63da48db588d4eefe6",
+    "semantic_hash": "5551cf48f5693b63da48db588d4eefe6"
   },
   "README.md": {
     "mtime": 1786145329.0139947,
@@ -60,9 +60,9 @@
     "semantic_hash": "86008d85938daa9b071f6fac81e8f6f4"
   },
   "index.html": {
-    "mtime": 1786144863.342453,
-    "ast_hash": "457d321b9d9cbde81ff22235976efc27",
-    "semantic_hash": "457d321b9d9cbde81ff22235976efc27"
+    "mtime": 1786184686.7192903,
+    "ast_hash": "909af9011f23ddb0a01523373ac094e6",
+    "semantic_hash": "909af9011f23ddb0a01523373ac094e6"
   },
   "assets/bradesco-card.png": {
     "mtime": 1779543559.477928,
@@ -100,14 +100,14 @@
     "semantic_hash": "ad174c84f244cac91659705b3d749f57"
   },
   "testes/e2e.test.js": {
-    "mtime": 1786145189.80576,
-    "ast_hash": "54480f058e0f2b6a56145fd07d72d416",
-    "semantic_hash": "54480f058e0f2b6a56145fd07d72d416"
+    "mtime": 1786151685.2580526,
+    "ast_hash": "5175e2ec156d90504ce5ac7734536b0a",
+    "semantic_hash": "5175e2ec156d90504ce5ac7734536b0a"
   },
   "testes/package.json": {
-    "mtime": 1786145206.8641362,
-    "ast_hash": "ae2633d298490c2cc9247a1ed48e442c",
-    "semantic_hash": "ae2633d298490c2cc9247a1ed48e442c"
+    "mtime": 1786152760.8157067,
+    "ast_hash": "61dc246c8348f6850c2b5484804efd18",
+    "semantic_hash": "61dc246c8348f6850c2b5484804efd18"
   },
   "testes/parser.test.js": {
     "mtime": 1786145189.8053164,
@@ -115,13 +115,18 @@
     "semantic_hash": "a22c407a97c16cc53b4306eaaa8ac249"
   },
   "testes/render.test.js": {
-    "mtime": 1786145189.8081322,
-    "ast_hash": "389d9f52ea06bc74dbd87ee9022e6cd8",
-    "semantic_hash": "389d9f52ea06bc74dbd87ee9022e6cd8"
+    "mtime": 1786153437.8944602,
+    "ast_hash": "2f6768e70ce62af7e12b1d6fe83b6217",
+    "semantic_hash": "2f6768e70ce62af7e12b1d6fe83b6217"
   },
   "testes/README.md": {
     "mtime": 1786145206.866632,
     "ast_hash": "5e045644e8e048c7304d7b7080d6f501",
     "semantic_hash": "5e045644e8e048c7304d7b7080d6f501"
+  },
+  "testes/sugestao.test.js": {
+    "mtime": 1786152743.3694081,
+    "ast_hash": "6a936b24e59a50611ccd58dc7e0aa475",
+    "semantic_hash": "6a936b24e59a50611ccd58dc7e0aa475"
   }
 }

@@ -16,13 +16,11 @@ Sem build, sem npm, sem framework. HTML/CSS/JS vanilla servido pelo GitHub Pages
    Isso devolve um subgrafo pequeno e direcionado. É **muito mais barato em tokens** do que `grep -r`, ler arquivos inteiros ou abrir o `GRAPH_REPORT.md`. Use `graphify path "<A>" "<B>"` para entender relações e `graphify explain "<conceito>"` para um ponto específico.
 3. Só leia os arquivos que o grafo apontar como relevantes — não os 2.800 linhas do projeto inteiro.
 
-**Depois de qualquer alteração relevante, atualize os dois:**
+**Depois de qualquer alteração relevante, atualize os dois.**
 
-```bash
-graphify update .          # SÓ quando o que mudou foi código (AST, sem custo de API)
-```
+🚫 **Não use `graphify update .` neste projeto.** Ele reconstrói o grafo a partir da extração de código e descarta o que não reextraiu, então derruba a camada semântica. Medido duas vezes aqui: 217→193 arestas na primeira, 387→293 na segunda (e 17→72 comunidades). O `index.html` conta como *documento* para o graphify, então quase toda mudança no app cai nesse caso.
 
-⚠️ **`graphify update .` só reprocessa código.** Se o que mudou foi um documento (este CLAUDE.md, o README), ele *invalida* as arestas semânticas daquele arquivo sem reconstruí-las — o grafo perde ligações e as comunidades se fragmentam. Para mudança em documento, use `/graphify --update`, que roda a extração semântica de novo. Detalhes em *graphify* no fim do arquivo.
+Use o fluxo de merge, que preserva o que não mudou — está em *graphify* no fim do arquivo. Se você já rodou `graphify update .` por engano, o grafo bom está em `graphify-out/AAAA-MM-DD/`; restaure de lá antes de refazer.
 
 E edite este CLAUDE.md quando a mudança afetar algo aqui descrito — arquitetura, contrato da API, formato de dados, fluxo de deploy, convenções ou a lista de *Débitos conhecidos* (item corrigido sai da lista; problema novo entra). Um CLAUDE.md desatualizado custa mais caro que um inexistente, porque manda a sessão seguinte na direção errada.
 
@@ -131,21 +129,44 @@ O projeto tem um grafo de conhecimento em `graphify-out/`, com god nodes e rela�
 
 - Para qualquer pergunta sobre o código, rode `graphify query "<pergunta>"` primeiro, enquanto `graphify-out/graph.json` existir. Use `graphify path "<A>" "<B>"` para relações e `graphify explain "<conceito>"` para um ponto focado. Os três devolvem um subgrafo escopado, bem menor que o `GRAPH_REPORT.md` ou um `grep` cru.
 - Leia `graphify-out/GRAPH_REPORT.md` só para revisão ampla de arquitetura, ou quando `query`/`path`/`explain` não trouxerem contexto suficiente.
-- Depois de mexer **no código**, rode `graphify update .` (só AST, sem custo de API).
 - `graphify-out/graph.html` é o grafo interativo — abre direto no browser, sem servidor.
+- Para atualizar o grafo, use o fluxo de merge abaixo. Nunca `graphify update .`.
 
 Os hooks em [.claude/settings.json](.claude/settings.json) lembram disso automaticamente antes de buscas e leituras.
 
-### Ao reextrair um documento — duas armadilhas já pagas
+### Como atualizar o grafo
 
-O grafo cobre código **e** documentação. Mudança em `.md` exige `/graphify --update` (extração semântica), não `graphify update .`. Duas coisas quebram nesse caminho, ambas já custaram um rebuild aqui:
+O único caminho seguro é `build_merge`, que mescla a extração nova sobre o grafo existente em vez de reconstruir do zero. `PY` abaixo é `$(cat graphify-out/.graphify_python)`.
 
-1. **`graphify update .` num documento alterado degrada o grafo.** Ele reextrai só código, mas o merge descarta o que veio do arquivo alterado. Medido neste projeto: 217 → 193 arestas, 16 → 52 comunidades. Se acontecer, o grafo curado anterior está salvo em `graphify-out/AAAA-MM-DD/` — restaure de lá e refaça pelo caminho certo.
-2. **Reextração substitui todos os nós daquele arquivo.** Se os IDs novos não forem idênticos aos antigos, as arestas *de outros arquivos* que apontavam para eles ficam órfãs e somem no merge (foi assim que 7 arestas README↔CLAUDE.md se perderam). Antes de reextrair um documento, colete os IDs atuais e mande o subagente reusá-los literalmente:
+**1. Ver o que mudou:**
 
 ```bash
-$(cat graphify-out/.graphify_python) -c "
+$PY -c "
+import json; from graphify.detect import detect_incremental; from pathlib import Path
+r=detect_incremental(Path('.'))
+Path('graphify-out/.graphify_incremental.json').write_text(json.dumps(r,ensure_ascii=False),encoding='utf-8')
+print(json.dumps(r.get('new_files',{}),ensure_ascii=False,indent=1))"
+```
+
+**2. Só código mudou** (ou a mudança no `.md` é cosmética): reextraia apenas o código e faça `build_merge` sem `prune_sources`. Os nós de documento ficam intactos — é isso que `graphify update .` não faz.
+
+**3. Documento mudou de verdade:** aí sim rode a extração semântica (subagente). **Antes disso, colete os IDs atuais e mande reusá-los literalmente** — reextração substitui todos os nós daquele arquivo, e ID novo orfana as arestas que outros arquivos apontavam para ele. Foi assim que 7 arestas README↔CLAUDE.md se perderam uma vez:
+
+```bash
+$PY -c "
 import json; from pathlib import Path
 g=json.loads(Path('graphify-out/graph.json').read_text(encoding='utf-8'))
 print([n['id'] for n in g['nodes'] if n.get('source_file')=='CLAUDE.md'])"
+```
+
+**4. Sempre confira depois:** arestas não podem cair e órfão novo é sinal de ID quebrado. Só o `sw.js` é órfão legítimo.
+
+```bash
+$PY -c "
+import json; from collections import Counter; from pathlib import Path
+g=json.loads(Path('graphify-out/graph.json').read_text(encoding='utf-8'))
+d=Counter()
+for l in g['links']: d[l['source']]+=1; d[l['target']]+=1
+print(len(g['nodes']),'nós',len(g['links']),'arestas')
+print('órfãos:',[n['id'] for n in g['nodes'] if d[n['id']]==0])"
 ```
