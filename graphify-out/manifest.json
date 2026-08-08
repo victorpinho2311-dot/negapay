@@ -1,0 +1,127 @@
+{
+  ".clasp.json": {
+    "mtime": 1782656379.6266065,
+    "ast_hash": "fbaa0df0b50f9c5d0cf73097b62ad47e",
+    "semantic_hash": "fbaa0df0b50f9c5d0cf73097b62ad47e"
+  },
+  "appscript/Code.js": {
+    "mtime": 1786144597.0254693,
+    "ast_hash": "b238a5cb35cc0070304c1717b3ca6540",
+    "semantic_hash": "b238a5cb35cc0070304c1717b3ca6540"
+  },
+  "appscript/appsscript.json": {
+    "mtime": 1782656987.4231887,
+    "ast_hash": "419329da8f1b979de5fbff579a85f92b",
+    "semantic_hash": "419329da8f1b979de5fbff579a85f92b"
+  },
+  "js/admin.js": {
+    "mtime": 1786145113.9901175,
+    "ast_hash": "640a8f99a1d583ef5565d0a71a0189d0",
+    "semantic_hash": "640a8f99a1d583ef5565d0a71a0189d0"
+  },
+  "js/auth.js": {
+    "mtime": 1786145113.9902892,
+    "ast_hash": "e37d175083ba187bd36d4a17d6485657",
+    "semantic_hash": "e37d175083ba187bd36d4a17d6485657"
+  },
+  "js/config.js": {
+    "mtime": 1786144688.7788675,
+    "ast_hash": "920745f8498069312dda7f411ca20bec",
+    "semantic_hash": "920745f8498069312dda7f411ca20bec"
+  },
+  "js/primo.js": {
+    "mtime": 1786145113.990225,
+    "ast_hash": "a8bf6eb4d0c84666caecac7f4e098e83",
+    "semantic_hash": "a8bf6eb4d0c84666caecac7f4e098e83"
+  },
+  "manifest.json": {
+    "mtime": 1779552713.2726555,
+    "ast_hash": "cc2954014f68b04331e3f16a99f9bf66",
+    "semantic_hash": "cc2954014f68b04331e3f16a99f9bf66"
+  },
+  "sw.js": {
+    "mtime": 1779551982.3675978,
+    "ast_hash": "3896b84f68d0d2d7462ac4fda1c28b62",
+    "semantic_hash": "3896b84f68d0d2d7462ac4fda1c28b62"
+  },
+  "CLAUDE.md": {
+    "mtime": 1786145295.606287,
+    "ast_hash": "4e72f534475faabc27b96ec1b819434d",
+    "semantic_hash": "4e72f534475faabc27b96ec1b819434d"
+  },
+  "README.md": {
+    "mtime": 1786145329.0139947,
+    "ast_hash": "e7b72cea11e715dcf97b548e826adbc8",
+    "semantic_hash": "e7b72cea11e715dcf97b548e826adbc8"
+  },
+  "email-preview.html": {
+    "mtime": 1779910012.8225327,
+    "ast_hash": "86008d85938daa9b071f6fac81e8f6f4",
+    "semantic_hash": "86008d85938daa9b071f6fac81e8f6f4"
+  },
+  "index.html": {
+    "mtime": 1786144863.342453,
+    "ast_hash": "457d321b9d9cbde81ff22235976efc27",
+    "semantic_hash": "457d321b9d9cbde81ff22235976efc27"
+  },
+  "assets/bradesco-card.png": {
+    "mtime": 1779543559.477928,
+    "ast_hash": "2e6dc8bd0d1d06d32db1b5d3457d98b6",
+    "semantic_hash": "2e6dc8bd0d1d06d32db1b5d3457d98b6"
+  },
+  "assets/bradesco-logo.png": {
+    "mtime": 1779543651.612763,
+    "ast_hash": "48316650480dd71652d7983b119ddd07",
+    "semantic_hash": "48316650480dd71652d7983b119ddd07"
+  },
+  "assets/icon-192.png": {
+    "mtime": 1779544130.7254243,
+    "ast_hash": "88bf3bd530dac2e77df0c0a71cc3a9b3",
+    "semantic_hash": "88bf3bd530dac2e77df0c0a71cc3a9b3"
+  },
+  "assets/icon-512.png": {
+    "mtime": 1779544110.8780782,
+    "ast_hash": "378fc0736fff90d1c6189da2c54e00dd",
+    "semantic_hash": "378fc0736fff90d1c6189da2c54e00dd"
+  },
+  ".claude/settings.json": {
+    "mtime": 1786142452.839027,
+    "ast_hash": "ac2565a5c12667342f87062d32299039",
+    "semantic_hash": "ac2565a5c12667342f87062d32299039"
+  },
+  "js/formato.js": {
+    "mtime": 1786145154.8537753,
+    "ast_hash": "cb3e2b5a7cd4551421ac7a181e8dd536",
+    "semantic_hash": "cb3e2b5a7cd4551421ac7a181e8dd536"
+  },
+  "js/parser-bradesco.js": {
+    "mtime": 1786144665.2210355,
+    "ast_hash": "ad174c84f244cac91659705b3d749f57",
+    "semantic_hash": "ad174c84f244cac91659705b3d749f57"
+  },
+  "testes/e2e.test.js": {
+    "mtime": 1786145189.80576,
+    "ast_hash": "54480f058e0f2b6a56145fd07d72d416",
+    "semantic_hash": "54480f058e0f2b6a56145fd07d72d416"
+  },
+  "testes/package.json": {
+    "mtime": 1786145206.8641362,
+    "ast_hash": "ae2633d298490c2cc9247a1ed48e442c",
+    "semantic_hash": "ae2633d298490c2cc9247a1ed48e442c"
+  },
+  "testes/parser.test.js": {
+    "mtime": 1786145189.8053164,
+    "ast_hash": "a22c407a97c16cc53b4306eaaa8ac249",
+    "semantic_hash": "a22c407a97c16cc53b4306eaaa8ac249"
+  },
+  "testes/render.test.js": {
+    "mtime": 1786145189.8081322,
+    "ast_hash": "389d9f52ea06bc74dbd87ee9022e6cd8",
+    "semantic_hash": "389d9f52ea06bc74dbd87ee9022e6cd8"
+  },
+  "testes/README.md": {
+    "mtime": 1786145206.866632,
+    "ast_hash": "5e045644e8e048c7304d7b7080d6f501",
+    "semantic_hash": "5e045644e8e048c7304d7b7080d6f501"
+  }
+}

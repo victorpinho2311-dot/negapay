@@ -1,52 +1,59 @@
 // ============================================================
-//  NegaPay — Painel Admin v1.1
-//  Adicionado: botão excluir fatura no histórico
+//  NegaPay — Painel Admin v2
+//
+//  Regras que a tela impoe:
+//  - Nenhuma fatura e publicada se a soma dos lancamentos nao
+//    fechar com o valor que o banco declarou para cada cartao.
+//  - Nenhum cartao e ignorado em silencio: cartao desconhecido
+//    para a publicacao ate voce dizer de quem e.
+//  - O mes e o vencimento vem do PDF, nunca do relogio.
 // ============================================================
 
 const Admin = (() => {
 
-  let faturaProcessada = null;
-  let bancoSelecionado = null;
+  let faturaLida = null;      // resultado do parser
+  let cartoesConhecidos = {}; // final -> { dono, apelido }
 
-  function init() {
+  async function init() {
     renderHeader();
-    renderUploadSection();
-    renderHistorico();
+    renderUpload();
+    await carregarCartoes();
+    await renderHistorico();
   }
 
   function renderHeader() {
-    const hora = new Date().getHours();
     document.getElementById('admin-header-greeting').textContent =
-      NEGAPAY_CONFIG.textos.saudacaoAdmin(hora);
+      NEGAPAY_CONFIG.textos.saudacaoAdmin(new Date().getHours());
   }
 
-  function renderUploadSection() {
+  async function carregarCartoes() {
+    try {
+      const res = await API.post({ acao: 'listarCartoes' });
+      cartoesConhecidos = {};
+      if (res.ok) {
+        res.cartoes.forEach(c => {
+          cartoesConhecidos[String(c.final)] = { dono: c.dono, apelido: c.apelido };
+        });
+      }
+    } catch (e) {
+      cartoesConhecidos = {};
+    }
+  }
+
+  // ── Upload ───────────────────────────────────────────────
+  function renderUpload() {
     const container = document.getElementById('admin-upload');
-    const bancos = NEGAPAY_CONFIG.bancos;
-
-    const seletorBanco = bancos.length > 1
-      ? `<div class="banco-select-group" id="banco-selector">
-          ${bancos.map((b, i) => `
-            <div class="banco-option ${i === 0 ? 'selected' : ''}" data-banco="${b.id}" onclick="Admin._selecionarBanco('${b.id}', this)">
-              <img src="${b.logoUrl}" alt="${b.nome}" onerror="this.style.display='none'">
-              <span style="font-size:0.85rem;font-weight:700">${b.nome}</span>
-            </div>
-          `).join('')}
-        </div>`
-      : '';
-
-    bancoSelecionado = bancos[0].id;
-
     container.innerHTML = `
       <div class="card">
         <p class="card-title">📤 Nova fatura</p>
-        ${seletorBanco}
-        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-zone" id="upload-zone"
+             onclick="document.getElementById('file-input').click()">
           <div class="upload-icon">📄</div>
           <div class="upload-title">Clique para selecionar a fatura</div>
-          <div class="upload-sub">PDF da fatura completa do cartão</div>
+          <div class="upload-sub">PDF da fatura completa do Bradesco</div>
         </div>
-        <input type="file" id="file-input" accept=".pdf,.csv" style="display:none" onchange="Admin._onFileSelect(event)">
+        <input type="file" id="file-input" accept="application/pdf,.pdf"
+               style="display:none" onchange="Admin._selecionar(event)">
         <div class="progress-bar" id="progress-bar" style="display:none">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
@@ -61,462 +68,480 @@ const Admin = (() => {
       e.preventDefault();
       zone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".csv"))) processarPDF(file);
-      else UI.toast('Selecione um arquivo PDF válido', 'error');
+      if (file) processar(file);
     });
   }
 
-  function _selecionarBanco(bancoId, el) {
-    bancoSelecionado = bancoId;
-    document.querySelectorAll('.banco-option').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-  }
-
-  function _onFileSelect(event) {
+  function _selecionar(event) {
     const file = event.target.files[0];
-    if (!file) return;
-    processarPDF(file);
+    if (file) processar(file);
   }
 
-  async function processarPDF(file) {
-    const progressBar  = document.getElementById('progress-bar');
-    const progressFill = document.getElementById('progress-fill');
-    const preview      = document.getElementById('preview-section');
+  async function processar(file) {
+    const barra = document.getElementById('progress-bar');
+    const fill  = document.getElementById('progress-fill');
+    const prev  = document.getElementById('preview-section');
 
-    progressBar.style.display = 'block';
-    progressFill.style.width  = '20%';
-    preview.style.display     = 'none';
+    barra.style.display = 'block';
+    fill.style.width = '25%';
+    prev.style.display = 'none';
 
     try {
-      const banco  = NEGAPAY_CONFIG.bancos.find(b => b.id === bancoSelecionado);
-      const mesAno = calcularMesAno();
+      fill.style.width = '60%';
+      const resultado = await ParserBradesco.processar(file);
+      fill.style.width = '100%';
 
-      progressFill.style.width = '50%';
-      const resultado = await PDFParser.processar(file, banco, mesAno);
-      progressFill.style.width = '90%';
-
-      if (resultado.cartoes.length === 0) {
-        UI.toast('Nenhum cartão do primo encontrado. Verifique os dígitos configurados.', 'error');
-        progressBar.style.display = 'none';
-        return;
-      }
-
-      faturaProcessada = resultado;
-      progressFill.style.width = '100%';
-
+      faturaLida = resultado;
       setTimeout(() => {
-        progressBar.style.display = 'none';
-        renderPreview(resultado, banco);
-        preview.style.display = 'block';
-      }, 400);
+        barra.style.display = 'none';
+        renderPreview(resultado);
+        prev.style.display = 'block';
+      }, 300);
 
     } catch (err) {
-      progressBar.style.display = 'none';
-      UI.toast('Erro ao processar o PDF: ' + err.message, 'error');
+      barra.style.display = 'none';
+      UI.toast(err.message, 'error');
       console.error(err);
     }
   }
 
-  function calcularMesAno() {
-    const agora = new Date();
-    const mes   = String(agora.getMonth() + 1).padStart(2, '0');
-    const ano   = agora.getFullYear();
-    return `${mes}/${ano}`;
-  }
+  // ── Preview com a conferência ────────────────────────────
+  function renderPreview(r) {
+    const prev = document.getElementById('preview-section');
+    const produto = NEGAPAY_CONFIG.produtoPorCapa(r.cartaoCapa);
+    const nomeProduto = produto ? produto.nome : `Cartão final ${r.cartaoCapa}`;
 
-  function renderPreview(resultado, banco) {
-    const preview = document.getElementById('preview-section');
+    const desconhecidos = r.cartoes.filter(c => !cartoesConhecidos[String(c.final)]);
+    const doPrimo = r.cartoes.filter(c =>
+      (cartoesConhecidos[String(c.final)] || {}).dono === 'primo');
+    const totalPrimo = doPrimo.reduce((s, c) => s + c.subtotal, 0);
 
-    preview.innerHTML = `
+    prev.innerHTML = `
       <hr class="divider">
-      <p class="card-title" style="margin-top:0.5rem">✅ Fatura processada — revise antes de publicar</p>
-      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem">
-        <img src="${banco.logoUrl}" alt="${banco.nome}" style="height:28px" onerror="this.style.display='none'">
+      ${renderConferencia(r)}
+
+      <div class="fatura-cabecalho">
+        <img src="${produto ? produto.logoUrl : NEGAPAY_CONFIG.bancoPadrao.logoUrl}"
+             alt="" style="height:28px" onerror="this.style.display='none'">
         <div>
-          <div style="font-size:0.9rem;font-weight:700">${banco.nome}</div>
-          <div style="font-size:0.78rem;color:var(--text-secondary)">
-            Vencimento: ${formatarVencimento(resultado.vencimento)} · Referência: ${resultado.mesAno}
+          <div class="fatura-produto">${Fmt.txt(nomeProduto)}</div>
+          <div class="fatura-meta">
+            Vence ${Fmt.txt(r.vencimento)} · Referência ${Fmt.txt(Fmt.mesAnoLongo(r.mesAno))}
           </div>
         </div>
       </div>
-      ${resultado.cartoes.map(cartao => renderCartaoPreview(cartao)).join('')}
-      <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total a pagar pelo Getlio</span>
-        <span style="font-size:1.4rem;font-weight:900;color:var(--text-primary)">${formatarMoeda(resultado.totalGeral)}</span>
+
+      ${desconhecidos.length ? renderCartoesDesconhecidos(desconhecidos) : ''}
+
+      ${r.cartoes.map(c => renderCartao(c)).join('')}
+
+      <div class="total-box">
+        <span class="total-label">Total a pagar pelo ${Fmt.txt(NEGAPAY_CONFIG.primo.nome)}</span>
+        <span class="total-valor">${Fmt.moeda(totalPrimo)}</span>
       </div>
-      <div style="display:flex;gap:0.75rem;margin-top:1rem">
-        <button class="btn btn-secondary" onclick="Admin._cancelarPreview()" style="flex:1">Cancelar</button>
-        <button class="btn btn-primary" onclick="Admin._publicarFatura()" style="flex:2" id="btn-publicar">
-          Publicar fatura
+
+      <div class="acoes-preview">
+        <button class="btn btn-secondary" onclick="Admin._cancelar()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-publicar"
+                onclick="Admin._publicar()"
+                ${(!r.ok || desconhecidos.length) ? 'disabled' : ''}>
+          ${desconhecidos.length ? 'Defina os cartões acima' :
+            (!r.ok ? 'Conferência falhou' : 'Publicar fatura')}
         </button>
       </div>
     `;
   }
 
-  function renderCartaoPreview(cartao) {
-    return `
-      <div style="margin-bottom:1rem">
-        <div class="cartao-header">
-          <div>
-            <span class="cartao-final">•••• ${cartao.final}</span>
-            <span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.5rem">${cartao.apelido || ''}</span>
+  // Bloco que mostra, explicitamente, se a conta fecha.
+  function renderConferencia(r) {
+    if (r.ok) {
+      return `
+        <div class="conferencia conferencia-ok">
+          <div class="conferencia-titulo">✓ Conferência bateu</div>
+          <div class="conferencia-texto">
+            A soma dos lançamentos fecha exatamente com o valor que o banco
+            declarou para cada cartão, e com o total da fatura
+            (${Fmt.moeda(r.totalFatura)}).
           </div>
-          <span class="cartao-subtotal">${formatarMoeda(cartao.subtotal)}</span>
+        </div>`;
+    }
+
+    const linhas = [];
+    r.divergentes.forEach(c => {
+      linhas.push(`final ${Fmt.txt(c.final)}: somei ${Fmt.moeda(c.subtotal)},
+                   o banco declarou ${Fmt.moeda(c.declarado)}
+                   (diferença de ${Fmt.moedaComSinal(c.diferenca)})`);
+    });
+    r.semDeclarado.forEach(c => {
+      linhas.push(`final ${Fmt.txt(c.final)}: não achei o valor declarado pelo banco`);
+    });
+    if (r.totalConfere === false) {
+      linhas.push(`soma das seções ${Fmt.moeda(r.somaSecoes)} ≠
+                   total da fatura ${Fmt.moeda(r.totalFatura)}`);
+    }
+
+    return `
+      <div class="conferencia conferencia-erro">
+        <div class="conferencia-titulo">⚠ A conta não fechou — nada será publicado</div>
+        <ul class="conferencia-lista">
+          ${linhas.map(l => `<li>${l}</li>`).join('')}
+        </ul>
+        <div class="conferencia-texto">
+          Isso quase sempre significa que o PDF tem um formato que o parser
+          ainda não conhece. Me mande este arquivo em vez de publicar um valor errado.
         </div>
-        ${cartao.lancamentos.map((l, idx) => `
-          <div class="lancamento-item" style="animation-delay:${idx * 0.03}s">
-            <div class="lancamento-info">
-              <div class="lancamento-data">${formatarDataLanc(l.data)}</div>
-              <div class="lancamento-desc">${l.descricao}</div>
+      </div>`;
+  }
+
+  function renderCartoesDesconhecidos(lista) {
+    return `
+      <div class="conferencia conferencia-aviso">
+        <div class="conferencia-titulo">Cartão novo nesta fatura</div>
+        <div class="conferencia-texto">
+          De quem é? Enquanto não disser, não publico — foi assim que o
+          cartão da Æternum virou R$ 0,00 sem ninguém perceber.
+        </div>
+        ${lista.map(c => `
+          <div class="cartao-novo">
+            <div>
+              <div class="cartao-novo-final">•••• ${Fmt.txt(c.final)}</div>
+              <div class="cartao-novo-titular">${Fmt.txt(c.titular)} · ${Fmt.moeda(c.subtotal)}</div>
             </div>
-            <div class="lancamento-valor ${l.tipo}">${l.tipo === 'estorno' ? '−' : ''}${formatarMoeda(Math.abs(l.valor))}</div>
+            <div class="cartao-novo-botoes">
+              <button class="btn-mini" onclick="Admin._definirDono('${Fmt.txt(c.final)}', 'admin', this)">Meu</button>
+              <button class="btn-mini btn-mini-primo" onclick="Admin._definirDono('${Fmt.txt(c.final)}', 'primo', this)">${Fmt.txt(NEGAPAY_CONFIG.primo.nome)}</button>
+            </div>
           </div>
         `).join('')}
-      </div>
-    `;
+      </div>`;
   }
 
-  function _cancelarPreview() {
+  function renderCartao(c) {
+    const info = cartoesConhecidos[String(c.final)];
+    const dono = info ? info.dono : null;
+    const etiqueta = dono === 'primo' ? NEGAPAY_CONFIG.primo.nome
+                   : dono === 'admin' ? 'Meu' : 'sem dono';
+    const classe = dono === 'primo' ? 'cartao-primo' : 'cartao-admin';
+
+    return `
+      <div class="cartao-bloco ${classe}">
+        <div class="cartao-header">
+          <div>
+            <span class="cartao-final">•••• ${Fmt.txt(c.final)}</span>
+            <span class="cartao-dono">${Fmt.txt(etiqueta)}</span>
+          </div>
+          <span class="cartao-subtotal">${Fmt.moeda(c.subtotal)}</span>
+        </div>
+        ${dono === 'primo' ? c.lancamentos.map(l => `
+          <div class="lancamento-item">
+            <div class="lancamento-info">
+              <div class="lancamento-data">${Fmt.txt(ParserBradesco.formatarDataLancamento(l))}</div>
+              <div class="lancamento-desc">
+                ${Fmt.txt(l.descricao)}
+                ${l.parcela ? `<span class="parcela">${Fmt.txt(l.parcela)}</span>` : ''}
+              </div>
+            </div>
+            <div class="lancamento-valor ${l.tipo}">
+              ${l.valor < 0 ? '−' : ''}${Fmt.moeda(Math.abs(l.valor))}
+            </div>
+          </div>
+        `).join('') : `
+          <div class="cartao-resumido">${c.lancamentos.length} lançamentos (não é do ${Fmt.txt(NEGAPAY_CONFIG.primo.nome)})</div>
+        `}
+      </div>`;
+  }
+
+  async function _definirDono(final, dono, botao) {
+    const cartao = faturaLida.cartoes.find(c => String(c.final) === String(final));
+    botao.disabled = true;
+    try {
+      const res = await API.post({
+        acao: 'definirDonoCartao', final, dono,
+        titular: cartao ? cartao.titular : ''
+      });
+      if (res.ok) {
+        cartoesConhecidos[String(final)] = { dono, apelido: '' };
+        UI.toast(`Cartão ${final} salvo como ${dono === 'primo' ? NEGAPAY_CONFIG.primo.nome : 'seu'}.`, 'success');
+        renderPreview(faturaLida);
+      } else {
+        UI.toast(res.erro || 'Não consegui salvar o cartão.', 'error');
+        botao.disabled = false;
+      }
+    } catch (e) {
+      UI.toast('Erro de conexão.', 'error');
+      botao.disabled = false;
+    }
+  }
+
+  function _cancelar() {
     document.getElementById('preview-section').style.display = 'none';
     document.getElementById('file-input').value = '';
-    faturaProcessada = null;
+    faturaLida = null;
   }
 
-  async function _publicarFatura() {
-    if (!faturaProcessada) return;
+  async function _publicar() {
+    if (!faturaLida || !faturaLida.ok) return;
 
     const btn = document.getElementById('btn-publicar');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Publicando...';
 
+    const produto = NEGAPAY_CONFIG.produtoPorCapa(faturaLida.cartaoCapa);
+
     try {
-      const res = await API.post({ acao: 'salvarFatura', fatura: faturaProcessada });
+      const res = await API.post({
+        acao: 'salvarFatura',
+        fatura: {
+          mesAno: faturaLida.mesAno,
+          produto: produto ? produto.nome : `Final ${faturaLida.cartaoCapa}`,
+          bancoId: 'bradesco',
+          vencimento: faturaLida.vencimento,
+          totalFaturaCentavos: faturaLida.totalFatura,
+          arquivo: faturaLida.arquivo,
+          cartoes: faturaLida.cartoes.map(c => ({
+            final: c.final,
+            titular: c.titular,
+            subtotal: c.subtotal,
+            declarado: c.declarado,
+            confere: c.confere,
+            lancamentos: c.lancamentos.map(l => ({
+              data: ParserBradesco.formatarDataLancamento(l),
+              descricao: l.descricao,
+              parcela: l.parcela,
+              valor: l.valor
+            }))
+          }))
+        }
+      });
 
       if (res.ok) {
-        UI.toast('Fatura publicada! O Getlio já pode visualizar. ✅', 'success');
-        _cancelarPreview();
+        UI.toast(`Fatura publicada — ${Fmt.moeda(res.totalPrimoCentavos)} para o ${NEGAPAY_CONFIG.primo.nome}.`, 'success');
+        _cancelar();
         await renderHistorico();
       } else {
-        UI.toast('Erro ao publicar: ' + res.erro, 'error');
+        UI.toast(res.erro || 'Erro ao publicar.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = 'Publicar fatura';
       }
     } catch (err) {
-      UI.toast('Erro de conexão. Tente novamente.', 'error');
-    } finally {
+      UI.toast('Erro de conexão. Nada foi publicado.', 'error');
       btn.disabled = false;
       btn.innerHTML = 'Publicar fatura';
     }
   }
 
+  // ── Histórico ────────────────────────────────────────────
   async function renderHistorico() {
     const container = document.getElementById('admin-historico');
     container.innerHTML = `
       <div class="card">
-        <p class="card-title">📋 Histórico de faturas</p>
+        <p class="card-title">📋 Faturas publicadas</p>
         <div id="historico-list">
-          <div style="text-align:center;padding:2rem;color:var(--text-muted)">
-            <span class="spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--brand-blue)"></span>
-          </div>
+          <div class="carregando"><span class="spinner spinner-escuro"></span></div>
         </div>
-      </div>
-    `;
+      </div>`;
 
     try {
-      const res  = await API.post({ acao: 'listarFaturas' });
+      const res = await API.post({ acao: 'listarFaturas' });
       const list = document.getElementById('historico-list');
 
-      if (!res.ok || res.faturas.length === 0) {
+      if (!res.ok || !res.faturas.length) {
         list.innerHTML = `
           <div class="empty-state">
             <div class="empty-icon">📭</div>
             <div class="empty-title">Nenhuma fatura publicada ainda</div>
-            <div class="empty-sub">Faça o upload da primeira fatura acima</div>
-          </div>
-        `;
+            <div class="empty-sub">Envie o PDF da primeira fatura acima</div>
+          </div>`;
         return;
       }
 
-      const faturas = res.faturas.map(normalizarFatura);
+      const abertas = res.faturas.filter(f => !f.pago);
+      const acerto = abertas.length > 1 ? `
+        <div class="acerto-historico">
+          <div>
+            <div class="acerto-titulo">Acerto histórico</div>
+            <div class="acerto-texto">
+              ${abertas.length} faturas em aberto. Se vocês já acertaram esses meses
+              por fora, quite todas até uma data — o saldo do Getúlio passa a contar
+              só do período seguinte.
+            </div>
+          </div>
+          <button class="btn-mini btn-mini-primo" onclick="Admin._quitarAte()">Quitar até…</button>
+        </div>` : '';
 
-      list.innerHTML = faturas.map(f => `
+      list.innerHTML = acerto + res.faturas.map(f => `
         <div class="historico-item">
-          <div onclick="Admin._verFatura('${f.faturaId}')" style="flex:1;cursor:pointer">
-            <div class="historico-mes">${formatarMesAno(f.mesAno)}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted)">Venc. ${formatarVencimento(f.vencimento)}</div>
+          <div class="historico-esq" onclick="Admin._ver('${Fmt.txt(f.faturaId)}')">
+            <div class="historico-mes">${Fmt.txt(Fmt.mesAnoCurto(f.mesAno))}</div>
+            <div class="historico-produto">${Fmt.txt(f.produto)}</div>
+            <div class="historico-venc">Vence ${Fmt.txt(f.vencimento)}</div>
           </div>
           <div class="historico-right">
-            <span class="historico-valor">${formatarMoeda(f.totalGeral)}</span>
-            <span class="badge ${f.pago ? 'badge-pago' : statusBadge(f.vencimento)}">
-              ${f.pago ? '✓ Pago' : statusTexto(f.vencimento)}
-            </span>
-            <button
-              class="btn-notificacao ${f.notificadoEm ? 'enviado' : ''}"
-              onclick="Admin._enviarNotificacao('${f.faturaId}', this)"
-              title="${f.notificadoEm ? 'Notificação já enviada' : 'Enviar notificação por email'}"
-              ${f.notificadoEm ? 'disabled' : ''}
-            >${f.notificadoEm ? 'Enviado' : 'Enviar notificação'}</button>
-            <button
-              onclick="Admin._confirmarExcluir('${f.faturaId}', '${formatarMesAno(f.mesAno)}')"
-              title="Excluir fatura"
-              style="background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:var(--text-muted);font-size:1rem;transition:all 0.2s;line-height:1"
-              onmouseover="this.style.background='var(--danger-bg)';this.style.color='var(--danger)'"
-              onmouseout="this.style.background='none';this.style.color='var(--text-muted)'"
-            >🗑</button>
+            <span class="historico-valor">${Fmt.moedaComSinal(f.totalPrimoCentavos)}</span>
+            <button class="badge badge-acao ${f.pago ? 'badge-pago' : (Fmt.vencido(f.vencimento) ? 'badge-vencido' : 'badge-aberto-lista')}"
+                    onclick="Admin._alternarPago('${Fmt.txt(f.faturaId)}', ${f.pago ? 'true' : 'false'})"
+                    title="${f.pago ? 'Clique para desmarcar' : 'Clique para marcar como paga'}">
+              ${f.pago ? '✓ Pago' : (Fmt.vencido(f.vencimento) ? '⚠ Vencido' : '⏳ Em aberto')}
+            </button>
+            <button class="btn-notificacao ${f.notificadoEm ? 'enviado' : ''}"
+                    onclick="Admin._notificar('${Fmt.txt(f.faturaId)}', this)"
+                    ${f.notificadoEm ? 'disabled' : ''}>
+              ${f.notificadoEm ? 'Enviado' : 'Notificar'}
+            </button>
+            <button class="btn-excluir"
+                    onclick="Admin._confirmarExcluir('${Fmt.txt(f.faturaId)}', '${Fmt.txt(Fmt.mesAnoCurto(f.mesAno))} · ${Fmt.txt(f.produto)}')"
+                    title="Excluir fatura">🗑</button>
           </div>
         </div>
       `).join('');
 
     } catch (err) {
       document.getElementById('historico-list').innerHTML =
-        `<div style="color:var(--danger);text-align:center;padding:1rem;font-size:0.85rem">Erro ao carregar histórico</div>`;
+        `<div class="erro-inline">Erro ao carregar o histórico</div>`;
     }
   }
 
-  async function _enviarNotificacao(faturaId, btn) {
-    if (!faturaId || !btn) return;
+  async function _ver(faturaId) {
+    UI.toast('Carregando...', '');
+    const res = await API.post({ acao: 'getFatura', faturaId });
+    if (!res.ok) return UI.toast('Erro ao carregar a fatura', 'error');
 
-    const textoOriginal = btn.textContent;
+    const f = res.fatura;
+    const prev = document.getElementById('preview-section');
+    prev.innerHTML = `
+      <hr class="divider">
+      <p class="card-title">🔍 ${Fmt.txt(Fmt.mesAnoLongo(f.mesAno))} · ${Fmt.txt(f.produto)}</p>
+      <div class="fatura-meta" style="margin-bottom:1rem">
+        Vence ${Fmt.txt(f.vencimento)} ${f.conferido ? '· ✓ conferida na publicação' : ''}
+      </div>
+      ${f.cartoes.map(c => `
+        <div class="cartao-bloco ${c.dono === 'primo' ? 'cartao-primo' : 'cartao-admin'}">
+          <div class="cartao-header">
+            <div>
+              <span class="cartao-final">•••• ${Fmt.txt(c.final)}</span>
+              <span class="cartao-dono">${c.dono === 'primo' ? Fmt.txt(NEGAPAY_CONFIG.primo.nome) : 'Meu'}</span>
+            </div>
+            <span class="cartao-subtotal">${Fmt.moedaComSinal(c.subtotalCentavos)}</span>
+          </div>
+          ${c.dono === 'primo' ? c.lancamentos.map(l => `
+            <div class="lancamento-item">
+              <div class="lancamento-info">
+                <div class="lancamento-data">${Fmt.txt(l.data)}</div>
+                <div class="lancamento-desc">
+                  ${Fmt.txt(l.descricao)}
+                  ${l.parcela ? `<span class="parcela">${Fmt.txt(l.parcela)}</span>` : ''}
+                </div>
+              </div>
+              <div class="lancamento-valor ${l.tipo}">
+                ${l.valorCentavos < 0 ? '−' : ''}${Fmt.moeda(Math.abs(l.valorCentavos))}
+              </div>
+            </div>`).join('') : ''}
+        </div>`).join('')}
+      <div class="total-box">
+        <span class="total-label">Total do ${Fmt.txt(NEGAPAY_CONFIG.primo.nome)}</span>
+        <span class="total-valor">${Fmt.moedaComSinal(f.totalPrimoCentavos)}</span>
+      </div>
+      <div style="margin-top:1rem">
+        <button class="btn btn-secondary btn-full" onclick="Admin._cancelar()">Fechar</button>
+      </div>`;
+    prev.style.display = 'block';
+    prev.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  async function _notificar(faturaId, btn) {
+    const original = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Enviando...';
-
     try {
       const appUrl = window.location.href.split('#')[0];
       const res = await API.post({ acao: 'enviarNotificacaoFatura', faturaId, appUrl });
-
       if (res.ok) {
-        UI.toast(res.jaEnviado ? 'Notificação já havia sido enviada.' : 'Notificação enviada por email.', 'success');
+        UI.toast(res.jaEnviado ? 'Já havia sido enviada.' : 'Notificação enviada.', 'success');
         btn.textContent = 'Enviado';
         btn.classList.add('enviado');
       } else {
-        UI.toast(res.erro || 'Erro ao enviar notificação.', 'error');
+        UI.toast(res.erro || 'Erro ao notificar.', 'error');
         btn.disabled = false;
-        btn.textContent = textoOriginal;
+        btn.textContent = original;
       }
-    } catch (err) {
-      UI.toast('Erro de conexão ao enviar notificação.', 'error');
+    } catch (e) {
+      UI.toast('Erro de conexão.', 'error');
       btn.disabled = false;
-      btn.textContent = textoOriginal;
+      btn.textContent = original;
     }
   }
 
-  // ── Confirma exclusão com dialog simples ─────────────────
-  function _confirmarExcluir(faturaId, mesAno) {
-    const confirmado = window.confirm(`Excluir a fatura de ${mesAno}?\n\nEssa ação não pode ser desfeita.`);
-    if (confirmado) _excluirFatura(faturaId);
+  // Alterna pago/em aberto. Marcar grava valorPago = total, entao a fatura
+  // deixa de pesar no saldo — inclusive quando o total e negativo.
+  async function _alternarPago(faturaId, estaPago) {
+    try {
+      const res = await API.post({
+        acao: 'registrarPagamento', faturaId, desfazer: estaPago === true
+      });
+      if (res.ok) {
+        UI.toast(estaPago ? 'Fatura reaberta.' : 'Fatura marcada como paga.', 'success');
+        await renderHistorico();
+      } else {
+        UI.toast(res.erro || 'Não consegui alterar.', 'error');
+      }
+    } catch (e) {
+      UI.toast('Erro de conexão.', 'error');
+    }
   }
 
-  async function _excluirFatura(faturaId) {
+  async function _quitarAte() {
+    const sugestao = '31/08/2026';
+    const ate = window.prompt(
+      'Quitar todas as faturas que vencem ATÉ esta data (DD/MM/AAAA).\n\n' +
+      'As que vencem depois ficam em aberto.',
+      sugestao);
+    if (!ate) return;
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(ate.trim())) {
+      return UI.toast('Use o formato DD/MM/AAAA.', 'error');
+    }
+
+    try {
+      const res = await API.post({ acao: 'quitarAte', ate: ate.trim() });
+      if (!res.ok) return UI.toast(res.erro || 'Erro ao quitar.', 'error');
+
+      if (!res.quitadas.length) {
+        UI.toast('Nenhuma fatura em aberto vencendo até ' + ate + '.', '');
+      } else {
+        UI.toast(`${res.quitadas.length} fatura(s) quitada(s).`, 'success');
+      }
+      await renderHistorico();
+    } catch (e) {
+      UI.toast('Erro de conexão.', 'error');
+    }
+  }
+
+  function _confirmarExcluir(faturaId, rotulo) {
+    if (window.confirm(`Excluir a fatura de ${rotulo}?\n\nEssa ação não pode ser desfeita.`)) {
+      _excluir(faturaId);
+    }
+  }
+
+  async function _excluir(faturaId) {
     try {
       const res = await API.post({ acao: 'excluirFatura', faturaId });
       if (res.ok) {
         UI.toast('Fatura excluída.', 'success');
         await renderHistorico();
       } else {
-        UI.toast('Erro ao excluir: ' + res.erro, 'error');
+        UI.toast(res.erro || 'Erro ao excluir.', 'error');
       }
-    } catch (err) {
+    } catch (e) {
       UI.toast('Erro de conexão.', 'error');
     }
   }
 
-  async function _verFatura(faturaId) {
-    UI.toast('Carregando fatura...', '');
-    const res = await API.post({ acao: 'getFatura', faturaId });
-    if (res.ok) {
-      const fatura = normalizarFatura(res.fatura);
-      const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === fatura.banco) || NEGAPAY_CONFIG.bancos[0];
-      faturaProcessada = fatura;
-      renderPreviewReadonly(fatura, banco);
-      document.getElementById('preview-section').style.display = 'block';
-      document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
-    } else {
-      UI.toast('Erro ao carregar fatura', 'error');
-    }
-  }
-
-  // Preview somente leitura (fatura já publicada)
-  function renderPreviewReadonly(resultado, banco) {
-    const preview = document.getElementById('preview-section');
-    preview.innerHTML = `
-      <hr class="divider">
-      <p class="card-title" style="margin-top:0.5rem">🔍 Visualizando fatura publicada</p>
-      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem">
-        <img src="${banco.logoUrl}" alt="${banco.nome}" style="height:28px" onerror="this.style.display='none'">
-        <div>
-          <div style="font-size:0.9rem;font-weight:700">${banco.nome}</div>
-          <div style="font-size:0.78rem;color:var(--text-secondary)">
-            Vencimento: ${formatarVencimento(resultado.vencimento)} · Referência: ${formatarMesAno(resultado.mesAno)}
-          </div>
-        </div>
-      </div>
-      ${(resultado.cartoes || []).map(cartao => renderCartaoPreview(cartao)).join('')}
-      <div style="background:var(--surface-2);border-radius:var(--radius-md);padding:1rem;margin-top:1rem;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:0.9rem;font-weight:700;color:var(--text-secondary)">Total pago pelo Getlio</span>
-        <span style="font-size:1.4rem;font-weight:900;color:var(--text-primary)">${formatarMoeda(resultado.totalGeral)}</span>
-      </div>
-      <div style="margin-top:1rem">
-        <button class="btn btn-secondary btn-full" onclick="Admin._cancelarPreview()">Fechar</button>
-      </div>
-    `;
-  }
-
-  // ── Helpers ──────────────────────────────────────────────
-  function normalizarFatura(fatura) {
-    if (!fatura) return fatura;
-    return {
-      ...fatura,
-      vencimento: normalizarVencimento(fatura.vencimento, fatura.mesAno)
-    };
-  }
-
-  function normalizarVencimento(vencimento, mesAno) {
-    const partes = getPartesData(vencimento);
-    if (!partes) return vencimento || '';
-
-    const mesEsperado = getMesVencimentoEsperado(mesAno);
-    if (mesEsperado && partes.mes !== mesEsperado && partes.dia === mesEsperado) {
-      return formatarDataBR(partes.mes, partes.dia, partes.ano);
-    }
-
-    return formatarDataBR(partes.dia, partes.mes, partes.ano);
-  }
-
-  function getPartesData(valor) {
-    if (!valor) return null;
-
-    if (Object.prototype.toString.call(valor) === '[object Date]' && !isNaN(valor)) {
-      return { dia: valor.getUTCDate(), mes: valor.getUTCMonth() + 1, ano: valor.getUTCFullYear() };
-    }
-
-    const texto = String(valor).trim();
-    const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (br) {
-      return { dia: parseInt(br[1], 10), mes: parseInt(br[2], 10), ano: parseInt(br[3], 10) };
-    }
-
-    if (texto.includes('T') || texto.match(/^\d{4}-/)) {
-      const data = new Date(texto);
-      if (!isNaN(data)) return { dia: data.getUTCDate(), mes: data.getUTCMonth() + 1, ano: data.getUTCFullYear() };
-    }
-
-    return null;
-  }
-
-  function getMesVencimentoEsperado(mesAno) {
-    const mes = getMesReferencia(mesAno);
-    if (!mes || mes < 1 || mes > 12) return null;
-    return mes === 12 ? 1 : mes + 1;
-  }
-
-  function getMesReferencia(mesAno) {
-    if (!mesAno) return null;
-
-    if (Object.prototype.toString.call(mesAno) === '[object Date]' && !isNaN(mesAno)) {
-      return mesAno.getUTCMonth() + 1;
-    }
-
-    const texto = String(mesAno).trim();
-
-    if (texto.includes('T') || texto.match(/^\d{4}-/)) {
-      const data = new Date(texto);
-      if (!isNaN(data)) return data.getUTCMonth() + 1;
-    }
-
-    const mesAnoNumerico = texto.match(/^(\d{1,2})\/(\d{4})$/);
-    if (mesAnoNumerico) return parseInt(mesAnoNumerico[1], 10);
-
-    const dataBrasileira = texto.match(/^\d{1,2}\/(\d{1,2})\/\d{4}$/);
-    if (dataBrasileira) return parseInt(dataBrasileira[1], 10);
-
-    const meses = {
-      janeiro: 1, jan: 1,
-      fevereiro: 2, fev: 2,
-      marco: 3, março: 3, mar: 3,
-      abril: 4, abr: 4,
-      maio: 5, mai: 5,
-      junho: 6, jun: 6,
-      julho: 7, jul: 7,
-      agosto: 8, ago: 8,
-      setembro: 9, set: 9,
-      outubro: 10, out: 10,
-      novembro: 11, nov: 11,
-      dezembro: 12, dez: 12
-    };
-    const nomeMes = texto.toLowerCase().match(/([a-zç]+)/);
-    return nomeMes ? meses[nomeMes[1]] || null : null;
-  }
-
-  function formatarDataBR(dia, mes, ano) {
-    return String(dia).padStart(2, '0') + '/' +
-      String(mes).padStart(2, '0') + '/' +
-      String(ano);
-  }
-
-  function formatarVencimento(venc) {
-    if (!venc) return '';
-    if (venc.includes('T') || venc.match(/^[0-9]{4}-/)) {
-      const d = new Date(venc);
-      if (!isNaN(d)) {
-        return String(d.getUTCDate()).padStart(2,'0') + '/' +
-               String(d.getUTCMonth()+1).padStart(2,'0') + '/' +
-               d.getUTCFullYear();
-      }
-    }
-    return venc;
-  }
-
-  function formatarDataLanc(data) {
-    if (!data) return '';
-    if (data.includes('T') || (data.includes('-') && data.length > 5)) {
-      const d = new Date(data);
-      if (!isNaN(d)) {
-        return String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0');
-      }
-    }
-    return data;
-  }
-
-  function formatarMoeda(valor) {
-    return 'R$ ' + Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function formatarMesAno(mesAno) {
-    if (!mesAno) return 'Fatura';
-    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    // Aceita DD/MM/YYYY, MM/YYYY, ou ISO
-    let mes, ano;
-    if (mesAno.includes('T') || mesAno.match(/^\d{4}-/)) {
-      const d = new Date(mesAno);
-      mes = String(d.getUTCMonth() + 1);
-      ano = String(d.getUTCFullYear());
-    } else {
-      const partes = mesAno.split('/');
-      mes = partes[0];
-      ano = partes[1] || partes[2] || '';
-    }
-    const idx = parseInt(mes) - 1;
-    return `${meses[idx] || mes} ${ano}`;
-  }
-
-  function parseVenc(vencimento) {
-    if (!vencimento) return new Date();
-    if (vencimento.includes('T') || vencimento.match(/^[0-9]{4}-/)) return new Date(vencimento);
-    const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date(a, m - 1, d);
-  }
-
-  function statusBadge(vencimento) {
-    return new Date() > parseVenc(vencimento) ? 'badge-vencido' : 'badge-aberto-lista';
-  }
-
-  function statusTexto(vencimento) {
-    return new Date() > parseVenc(vencimento) ? '⚠ Vencido' : '⏳ Em aberto';
-  }
-
   return {
     init, renderHistorico,
-    _selecionarBanco, _onFileSelect,
-    _cancelarPreview, _publicarFatura,
-    _verFatura, _confirmarExcluir, _enviarNotificacao
+    _selecionar, _cancelar, _publicar, _ver,
+    _notificar, _confirmarExcluir, _definirDono,
+    _alternarPago, _quitarAte
   };
 
 })();
+
+if (typeof window !== "undefined") window.Admin = Admin;

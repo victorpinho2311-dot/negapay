@@ -1,97 +1,76 @@
 // ============================================================
-//  NegaPay — Configuração Central
-//  Para adicionar novo banco ou cartão, edite apenas este arquivo.
-//  Nunca mexa no código principal para mudanças de configuração.
+//  NegaPay — Configuração
+//
+//  O que NAO esta mais aqui, e por que:
+//
+//  - diaVencimento: era chutado ("dia 5 do mes seguinte") e errava
+//    o mes inteiro. Agora o vencimento e lido do proprio PDF.
+//  - padraoSecao / padraoLancamento / padraoTotal: resquicio de uma
+//    versao antiga do parser, nao eram usados por ninguem.
+//  - cartoesPrimo: a lista fixa fazia cartao novo virar R$ 0,00 em
+//    silencio. Agora fica na aba "cartoes" da planilha, confirmada
+//    na tela na primeira vez que o cartao aparece.
 // ============================================================
 
 const NEGAPAY_CONFIG = {
 
-  // URL do Apps Script publicado como Web App
-  // Após publicar o Code.gs, cole a URL aqui
-apiUrl: 'https://script.google.com/macros/s/AKfycbyhfO7TiK9MThPhfSHkRrSBcMr1RZEaNRRN1LDj-F8hLxkwDY3Oo7dBqzo9YKHIv8vY/exec',
-  // Duração da sessão local (em dias)
+  apiUrl: 'https://script.google.com/macros/s/AKfycbyhfO7TiK9MThPhfSHkRrSBcMr1RZEaNRRN1LDj-F8hLxkwDY3Oo7dBqzo9YKHIv8vY/exec',
+
   sessaoDias: 30,
 
   // ──────────────────────────────────────────────────────────
-  //  BANCOS E CARTÕES
-  //  Para adicionar novo banco: copie o bloco abaixo e ajuste.
-  //  Para adicionar cartão: adicione um item em "cartoesPrimo".
+  //  PRODUTOS
+  //  O PDF nao escreve o nome do produto, mas o cartao da capa
+  //  ("**** **** **** 2737") e unico por fatura. E por ele que o
+  //  app sabe qual fatura chegou — sem o admin precisar escolher,
+  //  e portanto sem risco de sobrescrever a fatura errada.
   // ──────────────────────────────────────────────────────────
-  bancos: [
+  produtos: [
     {
-      id: 'bradesco',
-      nome: 'Bradesco Prime',
-      cor: '#CC0000',              // vermelho Bradesco
-      corSecundaria: '#1a1a1a',    // fundo do cartão (preto)
+      cartaoCapa: '2737',
+      nome: 'Visa Infinite',
+      cor: '#CC0000',
+      corSecundaria: '#1a1a1a',
       logoUrl: 'assets/bradesco-logo.png',
-      cardImageUrl: 'assets/bradesco-card.png',
-      diaVencimento: 5,            // todo dia 5
-
-      // Parser: padrão de texto que identifica seção de cartão no PDF
-      // Formato Bradesco: "Gastos referentes ao cartão: Final XXXX | NOME"
-      padraoSecao: /Gastos referentes ao cartão:\s*Final\s*(\d{4})\s*\|\s*(.+)/i,
-
-      // Padrão de linha de lançamento: "DD MES DESCRIÇÃO ... VALOR"
-      padraoLancamento: /^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\s+(.+?)\s+([-]?\d{1,3}(?:\.\d{3})*(?:,\d{2})?)$/i,
-
-      // Linha do total da seção: "Valor da fatura: R$ X.XXX,XX"
-      padraoTotal: /Valor da fatura:\s*R\$\s*([\d.,]+)/i,
-
-      // Cartões do primo monitorados neste banco
-      cartoesPrimo: [
-        {
-          final: '9087',
-          apelido: 'Cartão Principal',
-          titular: 'Getlio R D S Farias'
-        },
-        {
-          final: '2011',
-          apelido: 'Cartão Secundário',
-          titular: 'Getlio R D S Farias'
-        }
-      ]
+      cardImageUrl: 'assets/bradesco-card.png'
+    },
+    {
+      cartaoCapa: '3268',
+      nome: 'Visa Æternum',
+      cor: '#8A6E2F',
+      corSecundaria: '#141414',
+      logoUrl: 'assets/bradesco-logo.png',
+      cardImageUrl: 'assets/bradesco-card.png'
     }
-
-    // ── Exemplo para banco futuro ──────────────────────────
-    // {
-    //   id: 'nubank',
-    //   nome: 'Nubank',
-    //   cor: '#8A05BE',
-    //   corSecundaria: '#3d0066',
-    //   logoUrl: 'assets/nubank-logo.png',
-    //   cardImageUrl: 'assets/nubank-card.png',
-    //   diaVencimento: 15,
-    //   padraoSecao: /...,
-    //   padraoLancamento: /...,
-    //   padraoTotal: /...,
-    //   cartoesPrimo: [
-    //     { final: 'ZZZZ', apelido: 'Cartão Nubank', titular: 'Getlio R D S Farias' }
-    //   ]
-    // }
   ],
 
-  // ──────────────────────────────────────────────────────────
-  //  DADOS DO PRIMO (readonly)
-  // ──────────────────────────────────────────────────────────
+  bancoPadrao: {
+    id: 'bradesco',
+    nome: 'Bradesco',
+    logoUrl: 'assets/bradesco-logo.png',
+    cardImageUrl: 'assets/bradesco-card.png',
+    cor: '#CC0000',
+    corSecundaria: '#1a1a1a'
+  },
+
+  // Produto ainda nao cadastrado: o app pergunta o nome em vez de
+  // adivinhar, e passa a reconhece-lo pelo cartao da capa.
+  produtoPorCapa(final) {
+    return this.produtos.find(p => p.cartaoCapa === String(final)) || null;
+  },
+
   primo: {
-    nome: 'Getlio',
-    apelido: 'Nega',                         // usado em saudações informais
+    nome: 'Getúlio',
+    apelido: 'Nega',
     usuarioLogin: 'getlio'
   },
 
-  // ──────────────────────────────────────────────────────────
-  //  LEMBRETE iOS (.ics)
-  // ──────────────────────────────────────────────────────────
   lembrete: {
-    diasAntesAviso: 1,       // começa a avisar X dias antes do vencimento
-    titulo: (valor) => `NegaPay — Pagar R$ ${valor}`,
-    descricao: (valor, banco) => `Fatura ${banco} no valor de R$ ${valor}. Pague até hoje!`,
-    alarmeMinutos: -1440     // 1 dia antes (em minutos negativos = antes do evento)
+    diasAntesAviso: 3,
+    titulo: (valor) => `NegaPay — Pagar ${valor}`,
+    descricao: (valor, produto) => `Fatura ${produto} no valor de ${valor}.`,
   },
 
-  // ──────────────────────────────────────────────────────────
-  //  TEXTOS DO APP
-  // ──────────────────────────────────────────────────────────
   textos: {
     saudacaoAdmin: (hora) => {
       if (hora < 12) return 'Bom dia, Pinho';
@@ -106,5 +85,4 @@ apiUrl: 'https://script.google.com/macros/s/AKfycbyhfO7TiK9MThPhfSHkRrSBcMr1RZEa
   }
 };
 
-// Expõe globalmente
 window.NEGAPAY_CONFIG = NEGAPAY_CONFIG;

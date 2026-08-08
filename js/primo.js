@@ -1,459 +1,290 @@
 // ============================================================
-//  NegaPay — Painel do Primo (Readonly)
-//  Visualização de faturas, marcar como pago, lembrete iOS
+//  NegaPay — Painel do Primo v2
+//
+//  Mostra UM valor no topo (quanto ele deve no total) e, abaixo,
+//  o detalhe por fatura — porque agora sao duas faturas no mesmo
+//  mes, com vencimentos diferentes (Infinite dia 5, Aeternum dia 10).
+//
+//  O saldo e acumulado, como o banco faz: mes que fecha negativo
+//  vira credito e abate nos meses seguintes.
 // ============================================================
 
 const Primo = (() => {
 
-  let faturaAtual = null;
+  let resumo = null;
 
-  // ── Inicializa painel ────────────────────────────────────
   async function init() {
     renderHeader();
-    await carregarFaturaAtual();
-    await renderHistorico();
+    await carregar();
   }
 
-  // ── Header com saudação ──────────────────────────────────
   function renderHeader() {
-    const hora = new Date().getHours();
     document.getElementById('primo-header-greeting').textContent =
-      NEGAPAY_CONFIG.textos.saudacaoPrimo(hora);
+      NEGAPAY_CONFIG.textos.saudacaoPrimo(new Date().getHours());
   }
 
-  // ── Carrega e exibe a fatura mais recente ────────────────
-  async function carregarFaturaAtual() {
+  async function carregar() {
     const container = document.getElementById('primo-atual');
-    container.innerHTML = `
-      <div style="text-align:center;padding:2rem">
-        <span class="spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--brand-blue)"></span>
-      </div>
-    `;
+    container.innerHTML = `<div class="carregando"><span class="spinner spinner-escuro"></span></div>`;
 
     try {
-      const res = await API.post({ acao: 'listarFaturas' });
+      const res = await API.post({ acao: 'getResumo' });
+      if (!res.ok) throw new Error(res.erro);
 
-      if (!res.ok || res.faturas.length === 0) {
+      resumo = res;
+
+      if (!res.meses.length) {
         container.innerHTML = `
           <div class="summary-card">
             <div class="summary-mes">Sem fatura</div>
             <div class="summary-valor">R$ 0,00</div>
             <div class="summary-vencimento">Nenhuma fatura publicada ainda</div>
-          </div>
-        `;
+          </div>`;
+        document.getElementById('primo-historico').innerHTML = '';
         return;
       }
 
-      const faturaInfo = res.faturas[0]; // mais recente
-      const detalhes = await API.post({ acao: 'getFatura', faturaId: faturaInfo.faturaId });
-
-      if (!detalhes.ok) throw new Error(detalhes.erro);
-
-      faturaAtual = normalizarFatura(detalhes.fatura);
-      renderFaturaAtual(faturaAtual);
+      renderAtual(res);
+      renderHistorico(res);
 
     } catch (err) {
-      container.innerHTML = `
-        <div class="card" style="color:var(--danger);text-align:center">
-          Erro ao carregar fatura. Tente novamente.
-        </div>
-      `;
+      container.innerHTML = `<div class="card erro-inline">Erro ao carregar. Tente novamente.</div>`;
       console.error(err);
     }
   }
 
-  // ── Render da fatura atual (card hero + lançamentos) ─────
-  function renderFaturaAtual(fatura) {
+  // ── Card principal: um valor só ──────────────────────────
+  function renderAtual(res) {
     const container = document.getElementById('primo-atual');
-    const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === fatura.banco) || NEGAPAY_CONFIG.bancos[0];
-    const pago = fatura.pago;
-    const vencido = isVencido(fatura.vencimento) && !pago;
-    const diasParaVencer = diasAteVencimento(fatura.vencimento);
+    const mes = res.mesAtual;
+    const saldo = res.saldoAtualCentavos;
+    const credito = saldo < 0;
 
-    let badgeClass = 'badge-aberto';
-    let badgeTexto = '⏳ Em aberto';
-    if (pago)   { badgeClass = 'badge-pago';    badgeTexto = '✓ Pago'; }
-    if (vencido) { badgeClass = 'badge-vencido'; badgeTexto = '⚠ Vencido'; }
+    // vencimento mais proximo entre as faturas ainda em aberto do mes
+    const emAberto = mes.faturas.filter(f => !f.pago);
+    const proximo = emAberto.length
+      ? emAberto.slice().sort((a, b) => (Fmt.paraDate(a.vencimento) || 0) - (Fmt.paraDate(b.vencimento) || 0))[0]
+      : null;
 
-    const avisoVencimento = !pago && diasParaVencer <= NEGAPAY_CONFIG.lembrete.diasAntesAviso
-      ? `<div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:var(--radius-sm);padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.85rem;font-weight:700;color:var(--warning)">
-          ⚡ ${diasParaVencer === 0 ? 'Vence hoje!' : diasParaVencer < 0 ? `Venceu há ${Math.abs(diasParaVencer)} dia(s)` : `Vence em ${diasParaVencer} dia(s)`}
-        </div>`
+    const dias = proximo ? Fmt.diasAte(proximo.vencimento) : null;
+    const vencido = dias !== null && dias < 0;
+
+    let badgeClasse = 'badge-aberto';
+    let badgeTexto  = '⏳ Em aberto';
+    if (credito || saldo === 0) { badgeClasse = 'badge-pago'; badgeTexto = credito ? '★ Você tem crédito' : '✓ Tudo pago'; }
+    else if (vencido)           { badgeClasse = 'badge-vencido'; badgeTexto = '⚠ Vencido'; }
+
+    const aviso = (!credito && saldo > 0 && dias !== null && dias <= NEGAPAY_CONFIG.lembrete.diasAntesAviso)
+      ? `<div class="aviso-vencimento">
+           ⚡ ${dias === 0 ? 'Vence hoje!' : dias < 0
+              ? `Venceu há ${Math.abs(dias)} dia(s)`
+              : `Vence em ${dias} dia(s)`}
+         </div>`
       : '';
 
     container.innerHTML = `
-      <!-- Card hero com total -->
-      <div class="summary-card">
-        <div class="summary-status">
-          <span class="badge ${badgeClass}">${badgeTexto}</span>
-        </div>
-        <div class="summary-mes">Fatura ${formatarMesAno(fatura.mesAno)}</div>
-        <div class="summary-valor">${formatarMoeda(fatura.totalGeral)}</div>
-        <div class="summary-vencimento">Vencimento: ${formatarVencimento(fatura.vencimento)}</div>
+      <div class="summary-card ${credito ? 'summary-credito' : ''}">
+        <div class="summary-status"><span class="badge ${badgeClasse}">${badgeTexto}</span></div>
+        <div class="summary-rotulo">${credito ? 'Crédito a seu favor' : 'Você deve'}</div>
+        <div class="summary-valor">${Fmt.moeda(Math.abs(saldo))}</div>
+        ${proximo && !credito && saldo > 0
+          ? `<div class="summary-vencimento">Vencimento mais próximo: ${Fmt.txt(proximo.vencimento)}</div>`
+          : `<div class="summary-vencimento">${Fmt.txt(Fmt.mesAnoLongo(mes.mesAno))}</div>`}
       </div>
 
-      ${avisoVencimento}
+      ${aviso}
 
-      <!-- Lembrete iOS -->
-      ${!pago ? `
+      ${renderFaturasDoMes(mes)}
+
+      ${saldo !== mes.totalCentavos ? `
+        <div class="nota-saldo">
+          O valor acima é o saldo acumulado: soma tudo que ficou em aberto
+          nos meses anteriores. A fatura deste mês, sozinha, é
+          ${Fmt.moedaComSinal(mes.totalCentavos)}.
+        </div>` : ''}
+    `;
+  }
+
+  // ── Detalhe: uma linha por fatura do mês ─────────────────
+  function renderFaturasDoMes(mes) {
+    return `
+      <div class="card">
+        <p class="card-title">📄 Faturas de ${Fmt.txt(Fmt.mesAnoLongo(mes.mesAno))}</p>
+        ${mes.faturas.map(f => `
+          <div class="fatura-linha">
+            <div class="fatura-linha-esq" onclick="Primo._detalhar('${Fmt.txt(f.faturaId)}')">
+              <div class="fatura-linha-produto">${Fmt.txt(f.produto)}</div>
+              <div class="fatura-linha-venc">Vence ${Fmt.txt(f.vencimento)}</div>
+            </div>
+            <div class="fatura-linha-dir">
+              <span class="fatura-linha-valor">${Fmt.moedaComSinal(f.totalPrimoCentavos)}</span>
+              ${f.pago
+                ? `<span class="badge badge-pago">✓ Pago</span>`
+                : `<button class="btn-mini btn-mini-primo"
+                     onclick="Primo._pagar('${Fmt.txt(f.faturaId)}', this)">Marcar pago</button>`}
+            </div>
+          </div>
+          <div id="detalhe-${Fmt.txt(f.faturaId)}" class="fatura-detalhe" style="display:none"></div>
+        `).join('')}
+        <div class="fatura-total-mes">
+          <span>Total do mês</span>
+          <span>${Fmt.moedaComSinal(mes.totalCentavos)}</span>
+        </div>
+      </div>
+
+      ${mes.faturas.some(f => !f.pago) ? `
         <div class="lembrete-card">
           <div class="lembrete-info">
             <div class="lembrete-titulo">📅 Adicionar ao Calendário</div>
-            <div class="lembrete-sub">Receba um lembrete 1 dia antes do vencimento</div>
+            <div class="lembrete-sub">Um lembrete para cada vencimento</div>
           </div>
-          <button class="btn-lembrete" onclick="Primo._gerarLembrete()">+ Adicionar</button>
-        </div>
-      ` : ''}
-
-      <!-- Imagem do cartão -->
-      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem">
-        <img src="${banco.logoUrl}" alt="${banco.nome}" style="height:26px" onerror="this.style.display='none'">
-        <span style="font-size:0.85rem;font-weight:700;color:var(--text-secondary)">${banco.nome}</span>
-      </div>
-      <div style="margin-bottom:1.25rem">
-        <img src="${banco.cardImageUrl}" alt="Cartão ${banco.nome}"
-          style="width:100%;max-width:280px;border-radius:var(--radius-md);box-shadow:var(--shadow-md)"
-          onerror="this.style.display='none'">
-      </div>
-
-      <!-- Lançamentos por cartão -->
-      ${fatura.cartoes.map(cartao => renderCartao(cartao)).join('')}
-
-      <!-- Botão marcar como pago -->
-      ${!pago ? `
-        <button class="btn btn-success btn-full" id="btn-pago" onclick="Primo._marcarPago()">
-          ✓ Marcar como pago
-        </button>
-        <p style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-top:0.5rem">
-          Isso avisará o Pinho que você pagou 👍
-        </p>
-      ` : `
-        <div style="text-align:center;padding:1.5rem;color:var(--success)">
-          <div style="font-size:2rem;margin-bottom:0.5rem">✓</div>
-          <div style="font-weight:800;font-size:1rem">Fatura paga!</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.2rem">Pago em ${formatarData(fatura.dataPagamento)}</div>
-        </div>
-      `}
+          <button class="btn-lembrete" onclick="Primo._lembrete()">+ Adicionar</button>
+        </div>` : ''}
     `;
   }
 
-  // ── Render de um cartão com lançamentos ──────────────────
-  function renderCartao(cartao) {
-    return `
-      <div class="card" style="margin-bottom:1rem">
-        <div class="cartao-header">
-          <div>
-            <span class="cartao-final">•••• ${cartao.final}</span>
-            ${cartao.apelido ? `<span style="font-size:0.78rem;color:var(--text-muted);margin-left:0.5rem">${cartao.apelido}</span>` : ''}
-          </div>
-          <span class="cartao-subtotal">${formatarMoeda(cartao.subtotal)}</span>
-        </div>
-        ${cartao.lancamentos.map((l, idx) => `
-          <div class="lancamento-item" style="animation-delay:${idx * 0.04}s">
-            <div class="lancamento-info">
-              <div class="lancamento-data">${formatarDataLanc(l.data)}</div>
-              <div class="lancamento-desc" title="${l.descricao}">${l.descricao}</div>
-            </div>
-            <div class="lancamento-valor ${l.tipo}">
-              ${l.tipo === 'estorno' ? '<span style="font-size:0.7rem;background:var(--estorno-bg);color:var(--estorno);padding:1px 5px;border-radius:4px;margin-right:4px">estorno</span>' : ''}
-              ${l.tipo === 'estorno' ? '−' : ''}${formatarMoeda(Math.abs(l.valor))}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }
+  // ── Lançamentos de uma fatura, sob demanda ───────────────
+  async function _detalhar(faturaId) {
+    const alvo = document.getElementById('detalhe-' + faturaId);
+    if (!alvo) return;
 
-  // ── Marcar como pago ─────────────────────────────────────
-  async function _marcarPago() {
-    if (!faturaAtual) return;
+    if (alvo.style.display === 'block') {
+      alvo.style.display = 'none';
+      return;
+    }
 
-    const btn = document.getElementById('btn-pago');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Registrando...';
+    alvo.style.display = 'block';
+    alvo.innerHTML = `<div class="carregando"><span class="spinner spinner-escuro"></span></div>`;
 
     try {
-      const res = await API.post({ acao: 'marcarPago', faturaId: faturaAtual.faturaId });
+      const res = await API.post({ acao: 'getFatura', faturaId });
+      if (!res.ok) throw new Error(res.erro);
 
-      if (res.ok) {
-        UI.toast('Pago! O Pinho já foi notificado. ✅', 'success');
-        await carregarFaturaAtual(); // recarrega com status atualizado
-        await renderHistorico();
-      } else {
-        UI.toast('Erro: ' + res.erro, 'error');
-        btn.disabled = false;
-        btn.innerHTML = '✓ Marcar como pago';
-      }
-    } catch (err) {
-      UI.toast('Erro de conexão. Tente novamente.', 'error');
-      btn.disabled = false;
-      btn.innerHTML = '✓ Marcar como pago';
+      const meus = res.fatura.cartoes.filter(c => c.dono === 'primo');
+      alvo.innerHTML = meus.map(c => `
+        <div class="cartao-bloco cartao-primo">
+          <div class="cartao-header">
+            <span class="cartao-final">•••• ${Fmt.txt(c.final)}</span>
+            <span class="cartao-subtotal">${Fmt.moedaComSinal(c.subtotalCentavos)}</span>
+          </div>
+          ${c.lancamentos.map(l => `
+            <div class="lancamento-item">
+              <div class="lancamento-info">
+                <div class="lancamento-data">${Fmt.txt(l.data)}</div>
+                <div class="lancamento-desc">
+                  ${Fmt.txt(l.descricao)}
+                  ${l.parcela ? `<span class="parcela">${Fmt.txt(l.parcela)}</span>` : ''}
+                </div>
+              </div>
+              <div class="lancamento-valor ${l.tipo}">
+                ${l.tipo === 'estorno' ? '<span class="tag-estorno">estorno</span>' : ''}
+                ${l.valorCentavos < 0 ? '−' : ''}${Fmt.moeda(Math.abs(l.valorCentavos))}
+              </div>
+            </div>`).join('')}
+        </div>`).join('') || '<div class="cartao-resumido">Nenhum lançamento seu nesta fatura.</div>';
+
+    } catch (e) {
+      alvo.innerHTML = `<div class="erro-inline">Erro ao carregar os lançamentos.</div>`;
     }
   }
 
-  // ── Gerar lembrete .ics para iPhone ──────────────────────
-  function _gerarLembrete() {
-    if (!faturaAtual) return;
+  async function _pagar(faturaId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const res = await API.post({ acao: 'registrarPagamento', faturaId });
+      if (res.ok) {
+        UI.toast('Pago! O Pinho já vê aqui. ✅', 'success');
+        await carregar();
+      } else {
+        UI.toast(res.erro || 'Erro ao registrar.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Marcar pago';
+      }
+    } catch (e) {
+      UI.toast('Erro de conexão.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Marcar pago';
+    }
+  }
+
+  // ── Lembrete .ics: um evento por fatura em aberto ────────
+  function _lembrete() {
+    if (!resumo || !resumo.mesAtual) return;
 
     const cfg = NEGAPAY_CONFIG.lembrete;
-    const banco = NEGAPAY_CONFIG.bancos.find(b => b.id === faturaAtual.banco) || NEGAPAY_CONFIG.bancos[0];
+    const abertas = resumo.mesAtual.faturas.filter(f => !f.pago);
+    if (!abertas.length) return;
 
-    // Parseia data de vencimento DD/MM/AAAA
-    const [d, m, a] = faturaAtual.vencimento.split('/').map(Number);
-    const vencimento = new Date(a, m - 1, d);
+    const eventos = abertas.map(f => {
+      const d = Fmt.paraDate(f.vencimento);
+      if (!d) return null;
+      const dt = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+      const valor = Fmt.moeda(f.totalPrimoCentavos);
+      return [
+        'BEGIN:VEVENT',
+        `DTSTART;VALUE=DATE:${dt}`,
+        `DTEND;VALUE=DATE:${dt}`,
+        `SUMMARY:${cfg.titulo(valor)} (${f.produto})`,
+        `DESCRIPTION:${cfg.descricao(valor, f.produto)}`,
+        'STATUS:CONFIRMED',
+        `UID:negapay-${f.faturaId}@negapay`,
+        'BEGIN:VALARM', 'ACTION:DISPLAY',
+        `DESCRIPTION:${cfg.titulo(valor)}`, 'TRIGGER:-P1D', 'END:VALARM',
+        'BEGIN:VALARM', 'ACTION:DISPLAY',
+        `DESCRIPTION:${cfg.titulo(valor)} — VENCE HOJE!`, 'TRIGGER:PT0S', 'END:VALARM',
+        'END:VEVENT'
+      ].join('\r\n');
+    }).filter(Boolean);
 
-    // Data do evento = dia do vencimento
-    const dtStart = formatarDataICS(vencimento);
-
-    // Alarme = 1 dia antes (1440 minutos)
-    const valorFormatado = formatarMoeda(faturaAtual.totalGeral);
-
-    const ics = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//NegaPay//NegaPay//PT',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      'BEGIN:VEVENT',
-      `DTSTART;VALUE=DATE:${dtStart}`,
-      `DTEND;VALUE=DATE:${dtStart}`,
-      `SUMMARY:${cfg.titulo(valorFormatado)}`,
-      `DESCRIPTION:${cfg.descricao(valorFormatado, banco.nome)}`,
-      'STATUS:CONFIRMED',
-      `UID:negapay-${faturaAtual.faturaId}@negapay`,
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${cfg.titulo(valorFormatado)}`,
-      'TRIGGER:-P1D',  // 1 dia antes
-      'END:VALARM',
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${cfg.titulo(valorFormatado)} — VENCE HOJE!`,
-      'TRIGGER:PT0S',  // no dia
-      'END:VALARM',
-      'END:VEVENT',
-      'END:VCALENDAR'
-    ].join('\r\n');
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//NegaPay//NegaPay//PT',
+                 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', ...eventos, 'END:VCALENDAR'].join('\r\n');
 
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a_tag = document.createElement('a');
-    a_tag.href = url;
-    a_tag.download = `negapay-fatura-${faturaAtual.mesAno.replace('/', '-')}.ics`;
-    document.body.appendChild(a_tag);
-    a_tag.click();
-    document.body.removeChild(a_tag);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `negapay-${resumo.mesAtual.mesAno.replace('/', '-')}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    UI.toast('Arquivo baixado! Abra-o para adicionar ao Calendário 📅', 'success');
+    UI.toast(`${eventos.length} lembrete(s) baixado(s). Abra para adicionar ao Calendário 📅`, 'success');
   }
 
-  // ── Histórico de faturas anteriores ──────────────────────
-  async function renderHistorico() {
+  // ── Meses anteriores ─────────────────────────────────────
+  function renderHistorico(res) {
     const container = document.getElementById('primo-historico');
+    const anteriores = res.meses.slice(1);
 
-    try {
-      const res = await API.post({ acao: 'listarFaturas' });
+    if (!anteriores.length) { container.innerHTML = ''; return; }
 
-      if (!res.ok || res.faturas.length <= 1) {
-        container.innerHTML = '';
-        return;
-      }
-
-      // Pula a primeira (já exibida no card atual)
-      const anteriores = res.faturas.slice(1).map(normalizarFatura);
-
-      container.innerHTML = `
-        <div class="card">
-          <p class="card-title">📋 Faturas anteriores</p>
-          ${anteriores.map(f => `
-            <div class="historico-item">
-              <div>
-                <div class="historico-mes">${formatarMesAno(f.mesAno)}</div>
-                <div style="font-size:0.78rem;color:var(--text-muted)">Venc. ${f.vencimento}</div>
-              </div>
-              <div class="historico-right">
-                <span class="historico-valor" style="color:var(--text-secondary)">${formatarMoeda(f.totalGeral)}</span>
-                <span class="badge ${f.pago ? 'badge-pago' : 'badge-vencido'}">
-                  ${f.pago ? '✓ Pago' : '⚠ Não pago'}
-                </span>
-              </div>
+    container.innerHTML = `
+      <div class="card">
+        <p class="card-title">📋 Meses anteriores</p>
+        ${anteriores.map(m => {
+          const quitado = m.totalCentavos - m.pagoCentavos === 0;
+          const credito = m.totalCentavos < 0;
+          return `
+          <div class="historico-item">
+            <div>
+              <div class="historico-mes">${Fmt.txt(Fmt.mesAnoCurto(m.mesAno))}</div>
+              <div class="historico-produto">${m.faturas.length} fatura(s)</div>
             </div>
-          `).join('')}
-        </div>
-      `;
-    } catch (err) {
-      container.innerHTML = '';
-    }
+            <div class="historico-right">
+              <span class="historico-valor">${Fmt.moedaComSinal(m.totalCentavos)}</span>
+              <span class="badge ${quitado ? 'badge-pago' : credito ? 'badge-credito' : 'badge-vencido'}">
+                ${quitado ? '✓ Quitado' : credito ? '★ Crédito' : '⚠ Em aberto'}
+              </span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
   }
 
-  // ── Helpers ──────────────────────────────────────────────
-  function normalizarFatura(fatura) {
-    if (!fatura) return fatura;
-    return {
-      ...fatura,
-      vencimento: normalizarVencimento(fatura.vencimento, fatura.mesAno)
-    };
-  }
-
-  function normalizarVencimento(vencimento, mesAno) {
-    const partes = getPartesData(vencimento);
-    if (!partes) return vencimento || '';
-
-    const mesEsperado = getMesVencimentoEsperado(mesAno);
-    if (mesEsperado && partes.mes !== mesEsperado && partes.dia === mesEsperado) {
-      return formatarDataBR(partes.mes, partes.dia, partes.ano);
-    }
-
-    return formatarDataBR(partes.dia, partes.mes, partes.ano);
-  }
-
-  function getPartesData(valor) {
-    if (!valor) return null;
-
-    if (Object.prototype.toString.call(valor) === '[object Date]' && !isNaN(valor)) {
-      return { dia: valor.getUTCDate(), mes: valor.getUTCMonth() + 1, ano: valor.getUTCFullYear() };
-    }
-
-    const texto = String(valor).trim();
-    const br = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (br) {
-      return { dia: parseInt(br[1], 10), mes: parseInt(br[2], 10), ano: parseInt(br[3], 10) };
-    }
-
-    if (texto.includes('T') || texto.match(/^\d{4}-/)) {
-      const data = new Date(texto);
-      if (!isNaN(data)) return { dia: data.getUTCDate(), mes: data.getUTCMonth() + 1, ano: data.getUTCFullYear() };
-    }
-
-    return null;
-  }
-
-  function getMesVencimentoEsperado(mesAno) {
-    const mes = getMesReferencia(mesAno);
-    if (!mes || mes < 1 || mes > 12) return null;
-    return mes === 12 ? 1 : mes + 1;
-  }
-
-  function getMesReferencia(mesAno) {
-    if (!mesAno) return null;
-
-    if (Object.prototype.toString.call(mesAno) === '[object Date]' && !isNaN(mesAno)) {
-      return mesAno.getUTCMonth() + 1;
-    }
-
-    const texto = String(mesAno).trim();
-
-    if (texto.includes('T') || texto.match(/^\d{4}-/)) {
-      const data = new Date(texto);
-      if (!isNaN(data)) return data.getUTCMonth() + 1;
-    }
-
-    const mesAnoNumerico = texto.match(/^(\d{1,2})\/(\d{4})$/);
-    if (mesAnoNumerico) return parseInt(mesAnoNumerico[1], 10);
-
-    const dataBrasileira = texto.match(/^\d{1,2}\/(\d{1,2})\/\d{4}$/);
-    if (dataBrasileira) return parseInt(dataBrasileira[1], 10);
-
-    const meses = {
-      janeiro: 1, jan: 1,
-      fevereiro: 2, fev: 2,
-      marco: 3, março: 3, mar: 3,
-      abril: 4, abr: 4,
-      maio: 5, mai: 5,
-      junho: 6, jun: 6,
-      julho: 7, jul: 7,
-      agosto: 8, ago: 8,
-      setembro: 9, set: 9,
-      outubro: 10, out: 10,
-      novembro: 11, nov: 11,
-      dezembro: 12, dez: 12
-    };
-    const nomeMes = texto.toLowerCase().match(/([a-zç]+)/);
-    return nomeMes ? meses[nomeMes[1]] || null : null;
-  }
-
-  function formatarDataBR(dia, mes, ano) {
-    return String(dia).padStart(2, '0') + '/' +
-      String(mes).padStart(2, '0') + '/' +
-      String(ano);
-  }
-
-  function formatarMoeda(valor) {
-    return 'R$ ' + Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function formatarMesAno(mesAno) {
-    if (!mesAno) return 'Fatura';
-    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    let mes, ano;
-    if (mesAno.length > 7) {
-      const d = new Date(mesAno);
-      mes = String(d.getUTCMonth() + 1);
-      ano = String(d.getUTCFullYear());
-    } else {
-      const partes = mesAno.split('/');
-      mes = partes[0]; ano = partes[1] || '';
-    }
-    return (meses[parseInt(mes) - 1] || mes) + ' ' + ano;
-  }
-
-  function formatarVencimento(venc) {
-    if (!venc) return '';
-    if (venc.includes('T') || (venc.length > 8 && venc.includes('-'))) {
-      const d = new Date(venc);
-      if (!isNaN(d)) {
-        return String(d.getUTCDate()).padStart(2,'0') + '/' +
-               String(d.getUTCMonth()+1).padStart(2,'0') + '/' +
-               d.getUTCFullYear();
-      }
-    }
-    return venc;
-  }
-
-  function formatarDataLanc(data) {
-    if (!data) return '';
-    // Se vier como ISO (2026-05-11T...), converte para DD/MM
-    if (data.includes('T') || data.includes('-')) {
-      const d = new Date(data);
-      if (!isNaN(d)) {
-        return String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0');
-      }
-    }
-    return data; // já está no formato DD/MM
-  }
-
-  function formatarData(isoString) {
-    if (!isoString) return '';
-    const d = new Date(isoString);
-    return d.toLocaleDateString('pt-BR');
-  }
-
-  function formatarDataICS(date) {
-    const a = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${a}${m}${d}`;
-  }
-
-  function parseVenc(vencimento) {
-    if (!vencimento) return new Date();
-    if (vencimento.includes('T') || (vencimento.length > 8 && vencimento.includes('-'))) return new Date(vencimento);
-    const [d, m, a] = vencimento.split('/').map(Number);
-    return new Date(a, m - 1, d);
-  }
-
-  function isVencido(vencimento) {
-    return new Date() > parseVenc(vencimento);
-  }
-
-  function diasAteVencimento(vencimento) {
-    const venc = parseVenc(vencimento);
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    return Math.round((venc - hoje) / (1000 * 60 * 60 * 24));
-  }
-
-  return { init, _marcarPago, _gerarLembrete };
+  return { init, _pagar, _lembrete, _detalhar };
 
 })();
+
+if (typeof window !== "undefined") window.Primo = Primo;

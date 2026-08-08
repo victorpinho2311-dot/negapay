@@ -58,7 +58,13 @@ const Auth = (() => {
     }
   }
 
-  function logout() {
+  // Invalida o token no servidor antes de sair. Antes so limpava o
+  // localStorage — o token continuava valido ate expirar.
+  async function logout() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      try { await API.post({ acao: 'logout', token }); } catch (e) { /* sai mesmo assim */ }
+    }
     limparSessao();
     window.location.reload();
   }
@@ -104,3 +110,5 @@ const API = (() => {
   return { post };
 
 })();
+
+if (typeof window !== "undefined") { window.Auth = Auth; window.API = API; }

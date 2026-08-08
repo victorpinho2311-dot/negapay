@@ -749,3 +749,165 @@ a { color: inherit; text-decoration: none; }
   .login-card   { padding: 2rem 1.5rem; border-radius: var(--radius-lg); box-shadow: none; background: transparent; }
   #page-login   { padding: 1.5rem 1rem; }
 }
+
+/* ============================================================
+   v2 — conferência, faturas múltiplas e saldo acumulado
+   ============================================================ */
+
+/* ── Bloco de conferência ──────────────────────────────────── */
+.conferencia {
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid transparent;
+}
+.conferencia-titulo { font-weight: 800; font-size: 0.95rem; margin-bottom: 0.35rem; }
+.conferencia-texto  { font-size: 0.83rem; line-height: 1.55; color: var(--text-secondary); }
+.conferencia-lista  { margin: 0.5rem 0 0.6rem 1.1rem; font-size: 0.83rem; line-height: 1.6; }
+.conferencia-lista li { margin-bottom: 0.25rem; }
+
+.conferencia-ok     { background: var(--success-bg); border-color: rgba(16,185,129,0.3); }
+.conferencia-ok .conferencia-titulo { color: var(--success); }
+
+.conferencia-erro   { background: var(--danger-bg);  border-color: rgba(239,68,68,0.35); }
+.conferencia-erro .conferencia-titulo { color: var(--danger); }
+
+.conferencia-aviso  { background: var(--warning-bg); border-color: rgba(245,158,11,0.35); }
+.conferencia-aviso .conferencia-titulo { color: var(--warning); }
+
+/* ── Cartão novo aguardando dono ───────────────────────────── */
+.cartao-novo {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; padding: 0.7rem 0; border-top: 1px solid var(--border);
+  margin-top: 0.6rem;
+}
+.cartao-novo-final   { font-weight: 800; font-size: 0.95rem; }
+.cartao-novo-titular { font-size: 0.78rem; color: var(--text-secondary); }
+.cartao-novo-botoes  { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
+.btn-mini {
+  padding: 0.4rem 0.75rem; border-radius: var(--radius-sm);
+  font-size: 0.78rem; font-weight: 800;
+  background: var(--surface-2); color: var(--text-secondary);
+  transition: var(--transition);
+}
+.btn-mini:hover:not(:disabled) { background: var(--border-md); }
+.btn-mini:disabled { opacity: 0.5; cursor: default; }
+.btn-mini-primo { background: var(--brand-blue); color: #fff; }
+.btn-mini-primo:hover:not(:disabled) { background: #1976D2; }
+
+/* ── Cabeçalho da fatura ───────────────────────────────────── */
+.fatura-cabecalho {
+  display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;
+}
+.fatura-produto { font-size: 0.95rem; font-weight: 800; }
+.fatura-meta    { font-size: 0.78rem; color: var(--text-secondary); }
+
+/* ── Bloco de cartão ───────────────────────────────────────── */
+.cartao-bloco {
+  border-radius: var(--radius-md); padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem; border: 1px solid var(--border);
+}
+.cartao-primo { background: var(--surface); border-left: 3px solid var(--brand-blue); }
+.cartao-admin { background: var(--surface-2); opacity: 0.75; }
+.cartao-dono {
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-muted); margin-left: 0.5rem;
+}
+.cartao-resumido { font-size: 0.78rem; color: var(--text-muted); padding-top: 0.3rem; }
+
+.parcela {
+  font-size: 0.68rem; font-weight: 800; background: var(--surface-2);
+  color: var(--text-secondary); padding: 1px 5px;
+  border-radius: 4px; margin-left: 5px;
+}
+.tag-estorno {
+  font-size: 0.68rem; background: var(--estorno-bg); color: var(--estorno);
+  padding: 1px 5px; border-radius: 4px; margin-right: 4px; font-weight: 800;
+}
+
+/* ── Total ─────────────────────────────────────────────────── */
+.total-box {
+  background: var(--surface-2); border-radius: var(--radius-md);
+  padding: 1rem; margin-top: 1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+}
+.total-label { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); }
+.total-valor { font-size: 1.4rem; font-weight: 900; }
+
+.acoes-preview { display: flex; gap: 0.75rem; margin-top: 1rem; }
+.acoes-preview .btn-secondary { flex: 1; }
+.acoes-preview .btn-primary   { flex: 2; }
+.acoes-preview .btn:disabled  { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* ── Histórico ─────────────────────────────────────────────── */
+.historico-esq     { flex: 1; cursor: pointer; min-width: 0; }
+.historico-produto { font-size: 0.78rem; color: var(--text-secondary); font-weight: 700; }
+.historico-venc    { font-size: 0.74rem; color: var(--text-muted); }
+
+.btn-excluir {
+  padding: 4px 6px; border-radius: 6px; color: var(--text-muted);
+  font-size: 1rem; line-height: 1; transition: var(--transition);
+}
+.btn-excluir:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* ── Faturas do mês (tela do primo) ────────────────────────── */
+.fatura-linha {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; padding: 0.8rem 0; border-bottom: 1px solid var(--border);
+}
+.fatura-linha-esq     { flex: 1; cursor: pointer; min-width: 0; }
+.fatura-linha-produto { font-weight: 800; font-size: 0.92rem; }
+.fatura-linha-venc    { font-size: 0.76rem; color: var(--text-muted); }
+.fatura-linha-dir     { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
+.fatura-linha-valor   { font-weight: 900; font-size: 0.95rem; }
+
+.fatura-detalhe { padding: 0.5rem 0 0.75rem; }
+
+.fatura-total-mes {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 0.9rem; margin-top: 0.3rem;
+  font-weight: 900; font-size: 1rem;
+}
+
+/* ── Saldo ─────────────────────────────────────────────────── */
+.summary-rotulo {
+  font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.06em; opacity: 0.85; margin-bottom: 0.2rem;
+}
+.summary-credito { --grad-start: #10B981; --grad-mid: #059669; --grad-end: #047857; }
+
+.nota-saldo {
+  font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary);
+  background: var(--surface-2); border-radius: var(--radius-md);
+  padding: 0.85rem 1rem; margin-bottom: 1rem;
+}
+
+.aviso-vencimento {
+  background: var(--warning-bg); border: 1px solid var(--warning);
+  border-radius: var(--radius-sm); padding: 0.6rem 1rem; margin-bottom: 1rem;
+  font-size: 0.85rem; font-weight: 700; color: var(--warning);
+}
+
+.badge-credito { background: var(--success-bg); color: var(--success); }
+
+/* ── Estados ───────────────────────────────────────────────── */
+.carregando { text-align: center; padding: 2rem; color: var(--text-muted); }
+.spinner-escuro { border-color: rgba(0,0,0,0.15); border-top-color: var(--brand-blue); }
+.erro-inline {
+  color: var(--danger); text-align: center; padding: 1rem; font-size: 0.85rem;
+}
+
+/* ── Acerto histórico (admin) ──────────────────────────────── */
+.acerto-historico {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--surface-2); border-radius: var(--radius-md);
+  padding: 0.9rem 1rem; margin-bottom: 0.9rem;
+}
+.acerto-titulo { font-weight: 800; font-size: 0.9rem; margin-bottom: 0.2rem; }
+.acerto-texto  { font-size: 0.78rem; line-height: 1.5; color: var(--text-secondary); }
+.acerto-historico .btn-mini { flex-shrink: 0; }
+
+/* badge clicável — o admin alterna pago/em aberto */
+.badge-acao { cursor: pointer; transition: var(--transition); }
+.badge-acao:hover { filter: brightness(0.94); }

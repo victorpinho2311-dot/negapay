@@ -1,140 +1,113 @@
 # NegaPay 💳
 
-Controle de cartões adicionais — para uso pessoal entre Pinho (admin) e Getlio (primo).
+Controle de cartões adicionais entre Pinho (admin) e Getúlio (primo).
+
+O Pinho é titular dos cartões; o Getúlio tem adicionais. Todo mês o Pinho envia
+o PDF da fatura e o app calcula, e mostra para os dois, **quanto o Getúlio deve**.
 
 ---
 
-## Estrutura do projeto
+## O ponto principal: o app confere a própria conta
+
+A fatura do Bradesco imprime, para cada cartão, o total daquele cartão:
+
+```
+Gastos referentes ao cartão: Final 9087 | GETLIO R D S FARIAS   Valor da fatura: R$ 2.061,16
+```
+
+O app soma os lançamentos e compara com esse valor. **Se não bater ao centavo,
+ele se recusa a publicar.** Também confere se a soma das seções fecha com o
+total geral da fatura.
+
+É por isso que só aceita **PDF**. O CSV do Bradesco tem os mesmos lançamentos,
+mas não traz a data de vencimento nem o total por cartão — sem eles não existe
+como verificar o resultado, só confiar nele.
+
+---
+
+## Estrutura
 
 ```
 NegaPay/
-├── index.html              ← App completo (login + admin + primo)
-├── manifest.json           ← PWA
-├── sw.js                   ← Service Worker (offline)
-├── assets/
-│   ├── icon-192.png        ← Ícone do app (192x192)
-│   ├── icon-512.png        ← Ícone do app (512x512)
-│   ├── bradesco-logo.png   ← Logo do Bradesco Prime
-│   └── bradesco-card.png   ← Imagem do cartão físico
-├── css/
-│   └── style.css
+├── index.html                  ← app (login + admin + primo)
+├── manifest.json · sw.js       ← PWA
+├── css/style.css
 ├── js/
-│   ├── config.js           ← ⚙️ Configuração central (edite aqui)
-│   ├── auth.js             ← Autenticação e sessão
-│   ├── pdf-parser.js       ← Parser da fatura Bradesco
-│   ├── admin.js            ← Painel do Pinho
-│   └── primo.js            ← Painel do Getlio
-└── appscript/
-    └── Code.gs             ← Backend Google Apps Script
+│   ├── config.js               ← produtos e textos
+│   ├── formato.js              ← moeda e data (fonte única)
+│   ├── auth.js                 ← sessão + cliente da API
+│   ├── parser-bradesco.js      ← lê o PDF e confere os totais
+│   ├── admin.js                ← painel do Pinho
+│   └── primo.js                ← painel do Getúlio
+├── appscript/Code.js           ← backend Apps Script
+└── testes/                     ← suíte sobre faturas reais
 ```
 
 ---
 
-## Setup — passo a passo
+## Uso mensal
 
-### 1. Preparar os assets
+**Pinho** abre o app → arrasta o PDF da fatura → confere o bloco verde
+("Conferência bateu") → **Publicar fatura**. Se aparecer um cartão que o app não
+conhece, ele pergunta de quem é antes de deixar publicar.
 
-Coloque na pasta `assets/`:
-- `icon-192.png` — ícone do NegaPay (192x192px)
-- `icon-512.png` — ícone do NegaPay (512x512px)
-- `bradesco-logo.png` — logo do Bradesco Prime
-- `bradesco-card.png` — foto do cartão físico
+Com dois cartões (Infinite e Æternum), são dois PDFs. Cada um é publicado
+separadamente e os dois convivem no mesmo mês.
 
-### 2. Criar o Apps Script e a Planilha
-
-1. Acesse [script.google.com](https://script.google.com)
-2. Clique em **Novo projeto**
-3. Cole o conteúdo de `appscript/Code.gs`
-4. No menu superior, execute a função **`setupSheet`** (clique em ▶ com ela selecionada)
-5. Autorize as permissões solicitadas
-6. Copie o **ID da planilha** que aparece no log
-7. Cole o ID em `Code.gs` na variável `SHEET_ID`
-
-### 3. Trocar as senhas padrão
-
-Antes de publicar, edite a função `setupSheet` em `Code.gs` e mude:
-- `'negapay@admin'` → senha do Pinho
-- `'negapay@primo'` → senha do Getlio
-
-Também edite no topo de `Code.gs`:
-- `EMAIL_PRIMO` → email que receberá a notificação de fatura disponível
-- `EMAIL_ADMIN` → email do Pinho que receberá uma cópia da notificação
-
-Ou mude diretamente na planilha criada (aba `usuarios`, coluna `senhaHash` — use a função `hashSenha()` para gerar o hash correto).
-
-### 4. Publicar o Apps Script como Web App
-
-1. No editor do Apps Script, clique em **Implantar → Nova implantação**
-2. Tipo: **App da Web**
-3. Executar como: **Eu (sua conta)**
-4. Quem tem acesso: **Qualquer pessoa** (necessário para o frontend acessar)
-5. Clique em **Implantar** e copie a **URL do Web App**
-6. Cole a URL em `js/config.js` no campo `apiUrl`
-
-### 5. Publicar no GitHub Pages
-
-1. Crie um repositório no GitHub (ex: `negapay`)
-2. Faça push de todos os arquivos da pasta `NegaPay/`
-3. Vá em **Settings → Pages → Source → main branch → / (root)**
-4. Aguarde alguns minutos — o app estará em `https://SEU_USUARIO.github.io/negapay`
-
-### 6. Instalar no iPhone como PWA
-
-1. Abra o link no Safari do iPhone
-2. Toque em **Compartilhar → Adicionar à Tela de Início**
-3. O NegaPay vai aparecer como app nativo na tela inicial
+**Getúlio** abre o app e vê **um valor**: quanto deve no total. Abaixo, o detalhe
+por fatura, com o vencimento de cada uma. Toca numa fatura para ver os
+lançamentos, e marca como pago quando pagar.
 
 ---
 
-## Uso diário
+## Setup
 
-### Pinho (admin)
-1. Abre o app → faz login com suas credenciais
-2. Seleciona o banco (Bradesco por enquanto)
-3. Faz upload do PDF da fatura completa
-4. Revisa os lançamentos dos cartões do Getlio
-5. Clica **Publicar fatura**
+### 1. Planilha e Apps Script
 
-### Getlio (primo)
-1. Abre o link ou o PWA no iPhone
-2. Vê o valor total a pagar e a data de vencimento
-3. Clica **+ Adicionar** para colocar lembrete no Calendário
-4. Quando pagar, clica **Marcar como pago**
+1. Cole o conteúdo de `appscript/Code.js` em [script.google.com](https://script.google.com)
+2. Ajuste no topo: `SHEET_ID`, `EMAIL_PRIMO`, `EMAIL_ADMIN`
+3. Rode **`setupV2()`** uma vez — cria as abas `faturas_v2`, `lancamentos_v2` e `cartoes`
+4. **Implantar → Nova implantação** · App da Web · Executar como **eu** · Acesso **qualquer pessoa**
+5. Cole a URL da implantação em `apiUrl` no `js/config.js`
+
+A aba `usuarios` guarda login, hash da senha e perfil (`admin` / `primo`).
+Use `hashSenha()` para gerar o hash ao trocar uma senha pela planilha.
+
+### 2. Frontend
+
+Push para `main` → GitHub Pages publica.
+
+**Ao mexer em `js/` ou `css/`, atualize o `?v=` nas tags do `index.html`** — o
+Safari em PWA guarda os assets com força.
+
+### 3. iPhone
+
+Abra no Safari → Compartilhar → Adicionar à Tela de Início.
 
 ---
 
-## Adicionar novo banco no futuro
+## Cartão ou produto novo
 
-Edite apenas `js/config.js`:
+**Cartão adicional novo:** não precisa mexer em código. Ele aparece na tela ao
+publicar e você diz de quem é.
+
+**Produto novo** (outro cartão titular, com fatura própria): adicione em
+`produtos` no `js/config.js`, usando os 4 dígitos do cartão que aparece na capa
+do PDF:
 
 ```js
-bancos: [
-  { /* Bradesco — já existe */ },
-  {
-    id: 'nubank',
-    nome: 'Nubank',
-    cor: '#8A05BE',
-    corSecundaria: '#3d0066',
-    logoUrl: 'assets/nubank-logo.png',
-    cardImageUrl: 'assets/nubank-card.png',
-    diaVencimento: 15,
-    padraoSecao: /...padrão do PDF do Nubank.../i,
-    padraoLancamento: /...padrão de linha.../i,
-    padraoTotal: /...padrão do total.../i,
-    cartoesPrimo: [
-      { final: 'ZZZZ', apelido: 'Cartão Nubank', titular: 'Getlio R D S Farias' }
-    ]
-  }
-]
+{ cartaoCapa: '3268', nome: 'Visa Æternum', cor: '#8A6E2F', ... }
 ```
 
-Nenhum outro arquivo precisa ser alterado.
+Sem isso o app ainda funciona — só chama a fatura de "Cartão final 3268".
 
 ---
 
-## Credenciais padrão (MUDE ANTES DE PUBLICAR)
+## Testes
 
-| Usuário | Senha padrão | Perfil |
-|---------|-------------|--------|
-| pinho   | negapay@admin | Admin |
-| getlio  | negapay@primo | Primo |
+```bash
+cd testes && npm install && npm test
+```
+
+Rode antes de publicar qualquer mudança no parser. Detalhes em
+[testes/README.md](testes/README.md).

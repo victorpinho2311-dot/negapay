@@ -2,3 +2,11 @@
 .env
 *.log
 node_modules/
+
+# faturas reais nao vao para o git
+testes/faturas/
+
+# grafo: versiona o resultado, ignora cache e backups diarios
+graphify-out/cache/
+graphify-out/20*/
+graphify-out/.graphify_*

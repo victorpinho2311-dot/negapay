@@ -1,0 +1,14 @@
+{
+  "name": "negapay-testes",
+  "private": true,
+  "scripts": {
+    "test": "node parser.test.js && node e2e.test.js && node render.test.js",
+    "parser": "node parser.test.js",
+    "e2e": "node e2e.test.js",
+    "render": "node render.test.js"
+  },
+  "dependencies": {
+    "jsdom": "^24.0.0",
+    "pdfjs-dist": "3.11.174"
+  }
+}
