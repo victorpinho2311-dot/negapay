@@ -113,7 +113,7 @@ const Admin = (() => {
     const container = document.getElementById('admin-upload');
     container.innerHTML = `
       <div class="card">
-        <p class="card-title">📤 Novas faturas</p>
+        <p class="card-title">Novas faturas</p>
         <div class="upload-zone" id="upload-zone"
              onclick="document.getElementById('file-input').click()">
           <div class="upload-icon">📄</div>
@@ -303,6 +303,7 @@ const Admin = (() => {
         <div class="fatura-lote-topo" onclick="Admin._alternarDetalhe(${indice})">
           <div class="fatura-lote-id">
             <span class="fatura-lote-status">${r.ok ? '✓' : '⚠'}</span>
+            ${produto && produto.cardImageUrl ? `<img class="icone-cartao" src="${produto.cardImageUrl}" alt="">` : ''}
             <div>
               <div class="fatura-produto">${Fmt.txt(nomeProduto)}</div>
               <div class="fatura-meta">
@@ -312,22 +313,23 @@ const Admin = (() => {
           </div>
           <div class="fatura-lote-valor">
             <div class="total-valor">${Fmt.moeda(totalPrimo)}</div>
-            <div class="fatura-lote-abrir">${varias ? 'ver lançamentos' : ''}</div>
+            ${varias ? '<span class="caret caret-lote">⌄</span>' : ''}
           </div>
         </div>
 
         ${r.ok ? '' : renderConferencia(r)}
 
-        <div id="lote-detalhe-${indice}" class="fatura-lote-detalhe"
-             style="display:${varias ? 'none' : 'block'}">
-          ${r.cartoes.map(c => renderCartao(c)).join('')}
+        <div id="lote-detalhe-${indice}" class="fatura-lote-detalhe detalhe-expansivel ${varias ? '' : 'aberto'}">
+          <div class="detalhe-inner">
+            ${r.cartoes.map(c => renderCartao(c)).join('')}
+          </div>
         </div>
       </div>`;
   }
 
   function _alternarDetalhe(indice) {
     const el = document.getElementById('lote-detalhe-' + indice);
-    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    if (el) el.classList.toggle('aberto');
   }
 
   // Detalhe do que nao fechou numa fatura
@@ -543,7 +545,7 @@ const Admin = (() => {
     const container = document.getElementById('admin-historico');
     container.innerHTML = `
       <div class="card">
-        <p class="card-title">📋 Faturas publicadas</p>
+        <p class="card-title">Faturas publicadas</p>
         <div id="historico-list">
           <div class="carregando"><span class="spinner spinner-escuro"></span></div>
         </div>
@@ -577,12 +579,19 @@ const Admin = (() => {
           <button class="btn-mini btn-mini-primo" onclick="Admin._quitarAte()">Quitar até…</button>
         </div>` : '';
 
-      list.innerHTML = acerto + res.faturas.map(f => `
+      list.innerHTML = acerto + res.faturas.map(f => {
+        const produto = NEGAPAY_CONFIG.produtoPorNome(f.produto);
+        return `
         <div class="historico-item">
           <div class="historico-esq" onclick="Admin._ver('${Fmt.txt(f.faturaId)}')">
-            <div class="historico-mes">${Fmt.txt(Fmt.mesAnoCurto(f.mesAno))}</div>
-            <div class="historico-produto">${Fmt.txt(f.produto)}</div>
-            <div class="historico-venc">Vence ${Fmt.txt(f.vencimento)}</div>
+            <div class="produto-com-icone">
+              ${produto && produto.cardImageUrl ? `<img class="icone-cartao" src="${produto.cardImageUrl}" alt="">` : ''}
+              <div>
+                <div class="historico-mes">${Fmt.txt(Fmt.mesAnoCurto(f.mesAno))}</div>
+                <div class="historico-produto">${Fmt.txt(f.produto)}</div>
+                <div class="historico-venc">Vence ${Fmt.txt(f.vencimento)}</div>
+              </div>
+            </div>
           </div>
           <div class="historico-right">
             <span class="historico-valor">${Fmt.moedaComSinal(f.totalPrimoCentavos)}</span>
@@ -601,7 +610,7 @@ const Admin = (() => {
                     title="Excluir fatura">🗑</button>
           </div>
         </div>
-      `).join('');
+      `; }).join('');
 
     } catch (err) {
       document.getElementById('historico-list').innerHTML =
@@ -615,10 +624,14 @@ const Admin = (() => {
     if (!res.ok) return UI.toast('Erro ao carregar a fatura', 'error');
 
     const f = res.fatura;
+    const produto = NEGAPAY_CONFIG.produtoPorNome(f.produto);
     const prev = document.getElementById('preview-section');
     prev.innerHTML = `
       <hr class="divider">
-      <p class="card-title">🔍 ${Fmt.txt(Fmt.mesAnoLongo(f.mesAno))} · ${Fmt.txt(f.produto)}</p>
+      <div class="fatura-cabecalho">
+        ${produto && produto.cardImageUrl ? `<img class="icone-cartao" src="${produto.cardImageUrl}" alt="">` : ''}
+        <p class="card-title" style="margin-bottom:0">${Fmt.txt(Fmt.mesAnoLongo(f.mesAno))} · ${Fmt.txt(f.produto)}</p>
+      </div>
       <div class="fatura-meta" style="margin-bottom:1rem">
         Vence ${Fmt.txt(f.vencimento)} ${f.conferido ? '· ✓ conferida na publicação' : ''}
       </div>

@@ -1,52 +1,107 @@
 /* ============================================================
    NegaPay — Estilos Globais
-   Estética: clean, apple-like, claro e colorido
-   Fonte: Nunito (arredondada, amigável, moderna)
-   Paleta: gradiente verde/ciano/azul do ícone
+   Estética: iOS nativo — listas agrupadas + cartão metálico,
+   claro ou escuro conforme o sistema (sem seletor manual no app)
+   Fonte: system-ui (SF Pro no iOS/macOS, a mesma família do sistema)
+   Cor: monocromática no chrome, o verde/ciano/azul da marca fica
+   concentrado no cartão-hero, no wordmark e nos CTAs principais
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
-
-/* ── Variáveis ─────────────────────────────────────────────── */
+/* ── Variáveis — claro (padrão) ───────────────────────────────
+   O escuro fica em @media (prefers-color-scheme: dark), mais abaixo.
+   Não existe seletor de tema no app — segue o sistema operacional. */
 :root {
-  --grad-start:   #00E676;
-  --grad-mid:     #00BCD4;
-  --grad-end:     #2196F3;
+  --grad-start:   #4C80DB;
+  --grad-mid:     #2253AA;
+  --grad-end:     #0C1D3C;
 
-  --brand-green:  #00C853;
-  --brand-cyan:   #00BCD4;
-  --brand-blue:   #2196F3;
+  --brand-blue:      #4C80DB;
+  --brand-blue-dark: #255CBA;
 
-  --bg:           #F5F7FA;
+  --bg:           #F2F2F7;
   --surface:      #FFFFFF;
-  --surface-2:    #F0F4F8;
+  --surface-2:    #F2F2F7;
+  --surface-3:    #FFFFFF;
 
-  --text-primary:   #1A1D23;
-  --text-secondary: #6B7280;
-  --text-muted:     #9CA3AF;
+  --text-primary:   #000000;
+  --text-secondary: rgba(60,60,67,0.6);
+  --text-muted:     rgba(60,60,67,0.3);
 
-  --success:      #10B981;
-  --success-bg:   #ECFDF5;
-  --warning:      #F59E0B;
-  --warning-bg:   #FFFBEB;
-  --danger:       #EF4444;
-  --danger-bg:    #FEF2F2;
-  --estorno:      #8B5CF6;
-  --estorno-bg:   #F5F3FF;
+  --success:      #34C759;
+  --success-bg:   rgba(52,199,89,0.14);
+  --warning:      #FF9500;
+  --warning-bg:   rgba(255,149,0,0.14);
+  --danger:       #FF3B30;
+  --danger-bg:    rgba(255,59,48,0.12);
+  --estorno:      #AF52DE;
+  --estorno-bg:   rgba(175,82,222,0.13);
+  --info:         #007AFF;
+  --info-bg:      rgba(0,122,255,0.12);
 
-  --border:       rgba(0,0,0,0.07);
-  --border-md:    rgba(0,0,0,0.12);
+  --border:       rgba(60,60,67,0.18);
+  --border-md:    rgba(60,60,67,0.32);
   --shadow-sm:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md:    0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
   --shadow-lg:    0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
 
+  --spinner-ring: rgba(0,0,0,0.15);
+  --header-bg:    rgba(255,255,255,0.72);
+  --header-border: rgba(0,0,0,0.05);
+
   --radius-sm:    8px;
   --radius-md:    14px;
-  --radius-lg:    20px;
-  --radius-xl:    28px;
+  --radius-lg:    18px;
+  --radius-xl:    26px;
 
-  --font:         'Nunito', sans-serif;
-  --transition:   all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --font: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+
+  /* Curvas que se comportam como spring: aceleram rápido e assentam sem
+     round-trip — nada de easing simétrico tipo ease-in-out. */
+  --ease-spring:        cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-press:     0.12s;
+  --duration-fast:      0.2s;
+  --duration-base:      0.35s;
+  --press-scale:        0.97;
+
+  --transition:   all var(--duration-fast) var(--ease-spring);
+}
+
+/* ── Variáveis — escuro ────────────────────────────────────────
+   Mesmos tokens, redefinidos pro sistema em modo escuro. Todo o
+   resto do arquivo usa var(--x) e herda isso automaticamente. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:           #000000;
+    --surface:      #1C1C1E;
+    --surface-2:    #2C2C2E;
+    --surface-3:    #3A3A3C;
+
+    --text-primary:   #FFFFFF;
+    --text-secondary: rgba(235,235,245,0.6);
+    --text-muted:     rgba(235,235,245,0.3);
+
+    --success:      #30D158;
+    --success-bg:   rgba(48,209,88,0.16);
+    --warning:      #FF9F0A;
+    --warning-bg:   rgba(255,159,10,0.16);
+    --danger:       #FF453A;
+    --danger-bg:    rgba(255,69,58,0.16);
+    --estorno:      #BF5AF2;
+    --estorno-bg:   rgba(191,90,242,0.16);
+    --info:         #0A84FF;
+    --info-bg:      rgba(10,132,255,0.16);
+
+    --border:       rgba(84,84,88,0.48);
+    --border-md:    rgba(84,84,88,0.75);
+    --shadow-sm:    0 1px 2px rgba(0,0,0,0.4);
+    --shadow-md:    0 6px 20px rgba(0,0,0,0.45);
+    --shadow-lg:    0 20px 50px rgba(0,0,0,0.55);
+
+    --spinner-ring: rgba(255,255,255,0.15);
+    --header-bg:    rgba(28,28,30,0.72);
+    --header-border: rgba(255,255,255,0.06);
+  }
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -68,7 +123,7 @@ a { color: inherit; text-decoration: none; }
 #loading-screen {
   position: fixed;
   inset: 0;
-  background: white;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -81,8 +136,7 @@ a { color: inherit; text-decoration: none; }
 .loading-logo {
   width: 80px;
   height: 80px;
-  border-radius: 22px;
-  box-shadow: var(--shadow-md);
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.35));
   animation: pulse 1.5s ease-in-out infinite;
 }
 @keyframes pulse {
@@ -97,11 +151,11 @@ a { color: inherit; text-decoration: none; }
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--brand-cyan);
+  background: var(--grad-start);
   animation: dot-bounce 1.2s ease-in-out infinite;
 }
-.loading-dots span:nth-child(2) { animation-delay: 0.2s; background: var(--brand-blue); }
-.loading-dots span:nth-child(3) { animation-delay: 0.4s; background: var(--brand-green); }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; background: var(--grad-mid); }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; background: var(--grad-end); }
 @keyframes dot-bounce {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
   40% { transform: translateY(-8px); opacity: 1; }
@@ -117,8 +171,8 @@ a { color: inherit; text-decoration: none; }
   justify-content: center;
   padding: 2rem 1.5rem;
   background:
-    radial-gradient(ellipse at 20% 0%, rgba(0,200,83,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 100%, rgba(33,150,243,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 0%, rgba(0,230,118,0.16) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(76,128,219,0.16) 0%, transparent 60%),
     var(--bg);
 }
 .login-card {
@@ -128,7 +182,7 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   max-width: 400px;
   box-shadow: var(--shadow-lg);
-  animation: slide-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: slide-up 0.5s var(--ease-spring-bounce) both;
 }
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(24px); }
@@ -144,12 +198,12 @@ a { color: inherit; text-decoration: none; }
 .login-app-icon {
   width: 72px;
   height: 72px;
-  border-radius: 18px;
-  box-shadow: var(--shadow-md);
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.3));
 }
 .login-title {
   font-size: 1.6rem;
   font-weight: 900;
+  letter-spacing: -0.02em;
   background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -185,8 +239,8 @@ a { color: inherit; text-decoration: none; }
 }
 .form-input:focus {
   border-color: var(--brand-blue);
-  background: white;
-  box-shadow: 0 0 0 3px rgba(33,150,243,0.12);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 3px rgba(76,128,219,0.25);
 }
 .btn-login {
   width: 100%;
@@ -196,13 +250,13 @@ a { color: inherit; text-decoration: none; }
   font-weight: 800;
   color: white;
   background: linear-gradient(135deg, var(--grad-start) 0%, var(--grad-mid) 50%, var(--grad-end) 100%);
-  box-shadow: 0 4px 20px rgba(33,150,243,0.35);
+  box-shadow: 0 4px 20px rgba(76,128,219,0.35);
   transition: var(--transition);
   margin-top: 0.5rem;
   letter-spacing: 0.02em;
 }
-.btn-login:hover  { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(33,150,243,0.4); }
-.btn-login:active { transform: translateY(0); }
+.btn-login:hover  { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(76,128,219,0.4); }
+.btn-login:active { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .btn-login:disabled { opacity: 0.6; transform: none; }
 .login-error {
   font-size: 0.85rem;
@@ -222,8 +276,10 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Header ────────────────────────────────────────────────── */
 .app-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--header-border);
   padding: 0 1.5rem;
   height: 64px;
   display: flex;
@@ -242,12 +298,12 @@ a { color: inherit; text-decoration: none; }
 .header-icon {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  box-shadow: var(--shadow-sm);
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
 }
 .header-name {
   font-size: 1.2rem;
   font-weight: 900;
+  letter-spacing: -0.01em;
   background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -276,6 +332,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-secondary);
 }
 .btn-icon:hover { background: var(--border); color: var(--text-primary); }
+.btn-icon:active { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 
 /* ── Conteúdo principal ────────────────────────────────────── */
 .app-content {
@@ -289,33 +346,37 @@ a { color: inherit; text-decoration: none; }
 /* ── Cards ─────────────────────────────────────────────────── */
 .card {
   background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border);
-  margin-bottom: 1rem;
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 .card-title {
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
+  padding: 0 0.15rem;
 }
 
-/* ── Card de resumo (hero do primo) ────────────────────────── */
+/* ── Card de resumo (hero do primo) ──────────────────────────
+   Sem arte de cartão: gradiente da marca com dois círculos suaves.
+   Com arte (.tem-arte): a foto real do cartão (Infinite/Æternum) vira
+   o fundo, com um véu escuro por trás do texto pra garantir contraste. */
 .summary-card {
   background: linear-gradient(135deg, var(--grad-start) 0%, var(--grad-mid) 50%, var(--grad-end) 100%);
+  background-size: cover;
+  background-position: center;
   border-radius: var(--radius-xl);
   padding: 2rem 1.5rem;
   color: white;
   position: relative;
   overflow: hidden;
-  margin-bottom: 1rem;
-  box-shadow: 0 8px 32px rgba(33,150,243,0.3);
+  margin-bottom: 1.25rem;
+  box-shadow: 0 20px 45px -14px rgba(0,0,0,0.65);
 }
-.summary-card::before {
+.summary-card:not(.tem-arte)::before {
   content: '';
   position: absolute;
   top: -40px;
@@ -325,7 +386,7 @@ a { color: inherit; text-decoration: none; }
   border-radius: 50%;
   background: rgba(255,255,255,0.08);
 }
-.summary-card::after {
+.summary-card:not(.tem-arte)::after {
   content: '';
   position: absolute;
   bottom: -60px;
@@ -334,6 +395,19 @@ a { color: inherit; text-decoration: none; }
   height: 200px;
   border-radius: 50%;
   background: rgba(255,255,255,0.06);
+}
+.summary-card.tem-arte::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(178deg, rgba(0,0,0,0.08) 15%, rgba(0,0,0,0.72) 100%);
+}
+.summary-mes,
+.summary-valor,
+.summary-vencimento,
+.summary-rotulo {
+  position: relative;
+  z-index: 1;
 }
 .summary-mes {
   font-size: 0.8rem;
@@ -344,10 +418,11 @@ a { color: inherit; text-decoration: none; }
 }
 .summary-valor {
   font-size: 2.8rem;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.1;
   margin: 0.4rem 0 0.2rem;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .summary-vencimento {
   font-size: 0.85rem;
@@ -375,35 +450,21 @@ a { color: inherit; text-decoration: none; }
 .badge-pago    { background: var(--success-bg); color: var(--success); }
 .badge-aberto  { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); }
 .badge-vencido { background: var(--danger-bg); color: var(--danger); }
-.badge-aberto-lista { background: #EFF6FF; color: #1D4ED8; }
+.badge-aberto-lista { background: var(--info-bg); color: var(--info); }
 
-/* ── Cartão visual do banco ────────────────────────────────── */
-.bank-card-visual {
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 1rem;
+/* ── Ícone do cartão (foto real, Infinite/Æternum) ─────────── */
+.icone-cartao {
+  width: 30px;
+  height: 19px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0.5px rgba(255,255,255,0.14);
 }
-.bank-card-visual img {
-  width: 100%;
-  max-width: 280px;
-  border-radius: var(--radius-md);
-  margin: 0 auto;
-}
-.bank-info {
-  display: flex;
+.produto-com-icone {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-.bank-logo {
-  height: 28px;
-  width: auto;
-}
-.bank-nome {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-secondary);
+  gap: 0.45rem;
 }
 
 /* ── Seção de cartão ───────────────────────────────────────── */
@@ -482,7 +543,11 @@ a { color: inherit; text-decoration: none; }
 .upload-zone:hover,
 .upload-zone.drag-over {
   border-color: var(--brand-blue);
-  background: rgba(33,150,243,0.04);
+  background: rgba(76,128,219,0.04);
+}
+.upload-zone:active {
+  transform: scale(0.99);
+  transition-duration: var(--duration-press);
 }
 .upload-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
 .upload-title {
@@ -512,27 +577,30 @@ a { color: inherit; text-decoration: none; }
 .btn-primary {
   background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
   color: white;
-  box-shadow: 0 4px 16px rgba(33,150,243,0.3);
+  box-shadow: 0 4px 16px rgba(76,128,219,0.3);
 }
-.btn-primary:hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(33,150,243,0.4); }
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(76,128,219,0.4); }
+.btn-primary:active:not(:disabled) { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .btn-secondary {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-md);
 }
 .btn-secondary:hover { background: var(--border); }
+.btn-secondary:active:not(:disabled) { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .btn-success {
   background: var(--success);
   color: white;
-  box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--success) 30%, transparent);
 }
 .btn-success:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.btn-success:active:not(:disabled) { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .btn-success:disabled { opacity: 0.5; transform: none; cursor: default; }
 .btn-danger {
   background: var(--danger);
   color: white;
 }
+.btn-danger:active:not(:disabled) { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .btn-full { width: 100%; }
 
 /* ── Seletor de banco ──────────────────────────────────────── */
@@ -555,8 +623,9 @@ a { color: inherit; text-decoration: none; }
 }
 .banco-option.selected {
   border-color: var(--brand-blue);
-  background: rgba(33,150,243,0.06);
+  background: rgba(76,128,219,0.06);
 }
+.banco-option:active { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .banco-option img { height: 20px; width: auto; }
 
 /* ── Histórico ─────────────────────────────────────────────── */
@@ -571,6 +640,8 @@ a { color: inherit; text-decoration: none; }
 }
 .historico-item:last-child { border-bottom: none; }
 .historico-item:hover { background: var(--surface-2); margin: 0 -1.5rem; padding-left: 1.5rem; padding-right: 1.5rem; border-radius: var(--radius-sm); }
+.historico-esq { transition: transform var(--duration-press) var(--ease-spring); }
+.historico-esq:active { transform: scale(0.99); }
 .historico-mes {
   font-size: 0.95rem;
   font-weight: 700;
@@ -586,9 +657,9 @@ a { color: inherit; text-decoration: none; }
   gap: 0.75rem;
 }
 .btn-notificacao {
-  background: #EFF6FF;
-  color: #1D4ED8;
-  border: 1px solid rgba(29,78,216,0.18);
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
   border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   font-size: 0.78rem;
@@ -597,14 +668,18 @@ a { color: inherit; text-decoration: none; }
   transition: var(--transition);
 }
 .btn-notificacao:hover {
-  background: #DBEAFE;
+  background: color-mix(in srgb, var(--info) 26%, transparent);
   transform: translateY(-1px);
+}
+.btn-notificacao:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--duration-press);
 }
 .btn-notificacao.enviado {
   background: var(--success);
   border-color: var(--success);
   color: white;
-  box-shadow: 0 4px 14px rgba(16,185,129,0.24);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--success) 24%, transparent);
 }
 .btn-notificacao.enviado:hover {
   background: var(--success);
@@ -617,41 +692,6 @@ a { color: inherit; text-decoration: none; }
 .btn-notificacao.enviado:disabled {
   opacity: 1;
 }
-
-/* ── Lembrete iOS ──────────────────────────────────────────── */
-.lembrete-card {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  color: white;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.lembrete-info { flex: 1; }
-.lembrete-titulo {
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin-bottom: 0.2rem;
-}
-.lembrete-sub {
-  font-size: 0.78rem;
-  opacity: 0.8;
-}
-.btn-lembrete {
-  background: rgba(255,255,255,0.2);
-  color: white;
-  padding: 0.6rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.82rem;
-  font-weight: 700;
-  white-space: nowrap;
-  border: 1px solid rgba(255,255,255,0.3);
-  transition: var(--transition);
-}
-.btn-lembrete:hover { background: rgba(255,255,255,0.3); }
 
 /* ── Toast / Notificações ──────────────────────────────────── */
 #toast-container {
@@ -667,14 +707,16 @@ a { color: inherit; text-decoration: none; }
   pointer-events: none;
 }
 .toast {
-  background: var(--text-primary);
+  background: rgba(58,58,60,0.92);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   color: white;
   padding: 0.75rem 1.25rem;
   border-radius: var(--radius-md);
   font-size: 0.88rem;
   font-weight: 600;
   box-shadow: var(--shadow-lg);
-  animation: toast-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: toast-in 0.3s var(--ease-spring-bounce) both;
   pointer-events: auto;
 }
 .toast.success { background: var(--success); }
@@ -766,13 +808,13 @@ a { color: inherit; text-decoration: none; }
 .conferencia-lista  { margin: 0.5rem 0 0.6rem 1.1rem; font-size: 0.83rem; line-height: 1.6; }
 .conferencia-lista li { margin-bottom: 0.25rem; }
 
-.conferencia-ok     { background: var(--success-bg); border-color: rgba(16,185,129,0.3); }
+.conferencia-ok     { background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
 .conferencia-ok .conferencia-titulo { color: var(--success); }
 
-.conferencia-erro   { background: var(--danger-bg);  border-color: rgba(239,68,68,0.35); }
+.conferencia-erro   { background: var(--danger-bg);  border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .conferencia-erro .conferencia-titulo { color: var(--danger); }
 
-.conferencia-aviso  { background: var(--warning-bg); border-color: rgba(245,158,11,0.35); }
+.conferencia-aviso  { background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 40%, transparent); }
 .conferencia-aviso .conferencia-titulo { color: var(--warning); }
 
 /* ── Cartão novo aguardando dono ───────────────────────────── */
@@ -792,9 +834,10 @@ a { color: inherit; text-decoration: none; }
   transition: var(--transition);
 }
 .btn-mini:hover:not(:disabled) { background: var(--border-md); }
+.btn-mini:active:not(:disabled) { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 .btn-mini:disabled { opacity: 0.5; cursor: default; }
 .btn-mini-primo { background: var(--brand-blue); color: #fff; }
-.btn-mini-primo:hover:not(:disabled) { background: #1976D2; }
+.btn-mini-primo:hover:not(:disabled) { background: #255CBA; }
 
 /* ── Cabeçalho da fatura ───────────────────────────────────── */
 .fatura-cabecalho {
@@ -850,13 +893,15 @@ a { color: inherit; text-decoration: none; }
   font-size: 1rem; line-height: 1; transition: var(--transition);
 }
 .btn-excluir:hover { background: var(--danger-bg); color: var(--danger); }
+.btn-excluir:active { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 
 /* ── Faturas do mês (tela do primo) ────────────────────────── */
 .fatura-linha {
   display: flex; align-items: center; justify-content: space-between;
   gap: 0.75rem; padding: 0.8rem 0; border-bottom: 1px solid var(--border);
 }
-.fatura-linha-esq     { flex: 1; cursor: pointer; min-width: 0; }
+.fatura-linha-esq     { flex: 1; cursor: pointer; min-width: 0; transition: transform var(--duration-press) var(--ease-spring); }
+.fatura-linha-esq:active { transform: scale(0.99); }
 .fatura-linha-produto { font-weight: 800; font-size: 0.92rem; }
 .fatura-linha-venc    { font-size: 0.76rem; color: var(--text-muted); }
 .fatura-linha-dir     { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
@@ -875,7 +920,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.06em; opacity: 0.85; margin-bottom: 0.2rem;
 }
-.summary-credito { --grad-start: #10B981; --grad-mid: #059669; --grad-end: #047857; }
+.summary-credito { --grad-start: #30D158; --grad-mid: #1FA34A; --grad-end: #0D6B33; }
 
 .nota-saldo {
   font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary);
@@ -893,7 +938,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Estados ───────────────────────────────────────────────── */
 .carregando { text-align: center; padding: 2rem; color: var(--text-muted); }
-.spinner-escuro { border-color: rgba(0,0,0,0.15); border-top-color: var(--brand-blue); }
+.spinner-escuro { border-color: var(--spinner-ring); border-top-color: var(--brand-blue); }
 .erro-inline {
   color: var(--danger); text-align: center; padding: 1rem; font-size: 0.85rem;
 }
@@ -911,6 +956,7 @@ a { color: inherit; text-decoration: none; }
 /* badge clicável — o admin alterna pago/em aberto */
 .badge-acao { cursor: pointer; transition: var(--transition); }
 .badge-acao:hover { filter: brightness(0.94); }
+.badge-acao:active { transform: scale(var(--press-scale)); transition-duration: var(--duration-press); }
 
 /* sugestão de dono para cartão novo */
 .cartao-novo-sugestao {
@@ -931,18 +977,82 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border); border-radius: var(--radius-md);
   padding: 0.9rem 1rem; margin-bottom: 0.9rem; background: var(--surface);
 }
-.fatura-lote-erro { border-color: rgba(239,68,68,0.35); background: var(--danger-bg); }
+.fatura-lote-erro { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-bg); }
 
 .fatura-lote-topo {
   display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-spring);
 }
+.fatura-lote-topo:active { transform: scale(0.99); }
 .fatura-lote-id { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
 .fatura-lote-status { font-size: 1.1rem; color: var(--success); flex-shrink: 0; }
 .fatura-lote-erro .fatura-lote-status { color: var(--danger); }
-.fatura-lote-valor { text-align: right; flex-shrink: 0; }
+.fatura-lote-valor { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
 .fatura-lote-valor .total-valor { font-size: 1.1rem; }
-.fatura-lote-abrir {
-  font-size: 0.72rem; color: var(--brand-blue); font-weight: 700;
-}
 .fatura-lote-detalhe { margin-top: 0.9rem; }
+
+/* ── Transição de página — a troca de tela materializa, não pisca ── */
+.page.entrando {
+  animation: page-in var(--duration-base) var(--ease-spring) both;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Acessibilidade: menos movimento e mais opacidade nos materiais ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-header {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ── Accordion (fatura-detalhe, lote-detalhe) ──────────────────
+   grid-template-rows 0fr→1fr materializa o conteúdo em vez de só
+   trocar display — a única técnica só-CSS que anima uma altura
+   que não conhecemos de antemão. Precisa do wrapper .detalhe-inner
+   porque a linha do grid só clipa um item, não vários soltos. */
+.detalhe-expansivel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-base) var(--ease-spring);
+}
+.detalhe-expansivel.aberto { grid-template-rows: 1fr; }
+.detalhe-inner { overflow: hidden; min-height: 0; }
+
+/* ── Chevron (navega pra outra tela) e caret (expande no lugar) ──
+   Chevron não gira — leva a um lugar novo. Caret gira 180° quando o
+   irmão .detalhe-expansivel abre, porque o conteúdo fica ali mesmo. */
+.chevron {
+  color: var(--text-muted); font-size: 1rem; font-weight: 600; flex-shrink: 0;
+}
+.caret {
+  color: var(--text-muted); font-size: 0.8rem; flex-shrink: 0; line-height: 1;
+  transition: transform var(--duration-base) var(--ease-spring);
+  display: inline-flex; padding: 4px;
+}
+.fatura-grupo:has(.detalhe-expansivel.aberto) .caret,
+.fatura-lote:has(.fatura-lote-detalhe.aberto) .caret-lote {
+  transform: rotate(180deg);
+}
+
+/* linha do histórico (admin) tem valor + badge + notificar + excluir — não
+   cabe ao lado do rótulo em tela de celular sem sobrepor texto. Precisa
+   vir depois da definição base de .historico-esq (que fixa flex:1) pra
+   realmente vencer na cascata. */
+@media (max-width: 480px) {
+  .historico-item   { flex-wrap: wrap; row-gap: 0.6rem; }
+  .historico-esq    { flex: 1 1 100%; }
+  .historico-right  { flex: 1 1 100%; justify-content: flex-end; flex-wrap: wrap; row-gap: 0.4rem; }
+}

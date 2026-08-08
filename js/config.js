@@ -32,7 +32,7 @@ const NEGAPAY_CONFIG = {
       cor: '#CC0000',
       corSecundaria: '#1a1a1a',
       logoUrl: 'assets/bradesco-logo.png',
-      cardImageUrl: 'assets/bradesco-card.png'
+      cardImageUrl: 'assets/visa-infinite.png?v=20260808-6'
     },
     {
       cartaoCapa: '3268',
@@ -40,7 +40,7 @@ const NEGAPAY_CONFIG = {
       cor: '#8A6E2F',
       corSecundaria: '#141414',
       logoUrl: 'assets/bradesco-logo.png',
-      cardImageUrl: 'assets/bradesco-card.png'
+      cardImageUrl: 'assets/Æternum.png?v=20260808-6'
     }
   ],
 
@@ -59,16 +59,20 @@ const NEGAPAY_CONFIG = {
     return this.produtos.find(p => p.cartaoCapa === String(final)) || null;
   },
 
+  // O backend devolve o produto pelo nome (nao pelo cartao da capa) em
+  // faturas ja publicadas — usado pra achar o icone do cartao nas listas.
+  produtoPorNome(nome) {
+    return this.produtos.find(p => p.nome === nome) || null;
+  },
+
   primo: {
     nome: 'Getúlio',
     apelido: 'Nega',
     usuarioLogin: 'getlio'
   },
 
-  lembrete: {
-    diasAntesAviso: 3,
-    titulo: (valor) => `NegaPay — Pagar ${valor}`,
-    descricao: (valor, produto) => `Fatura ${produto} no valor de ${valor}.`,
+  aviso: {
+    diasAntesAviso: 3
   },
 
   textos: {
