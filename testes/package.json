@@ -2,11 +2,12 @@
   "name": "negapay-testes",
   "private": true,
   "scripts": {
-    "test": "node parser.test.js && node e2e.test.js && node render.test.js && node sugestao.test.js",
+    "test": "node parser.test.js && node payload.test.js && node e2e.test.js && node render.test.js && node sugestao.test.js",
     "parser": "node parser.test.js",
     "e2e": "node e2e.test.js",
     "render": "node render.test.js",
-    "sugestao": "node sugestao.test.js"
+    "sugestao": "node sugestao.test.js",
+    "payload": "node payload.test.js"
   },
   "dependencies": {
     "jsdom": "^24.0.0",

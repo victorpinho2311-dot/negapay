@@ -49,7 +49,15 @@ function doGet(e) {
       return resposta({ ok: true, servico: 'NegaPay API', versao: '2.0' });
     }
 
-    const body = JSON.parse(decodeURIComponent(payload));
+    // No GET o próprio Apps Script já decodifica o parâmetro; no POST o
+    // corpo chega cru. E uma descrição de lançamento pode conter "%",
+    // que faria decodeURIComponent estourar num JSON já decodificado.
+    let body;
+    try {
+      body = JSON.parse(payload);
+    } catch (e) {
+      body = JSON.parse(decodeURIComponent(payload));
+    }
     const acao = body.acao;
     let resultado;
 

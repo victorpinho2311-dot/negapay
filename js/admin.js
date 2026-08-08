@@ -489,13 +489,20 @@ const Admin = (() => {
             vencimento: r.vencimento,
             totalFaturaCentavos: r.totalFatura,
             arquivo: r.arquivo,
+            // Só vão os lançamentos dos cartões do primo. Os seus nunca
+            // são exibidos, e mandar todos estourava o limite de tamanho
+            // da URL do Apps Script — era isso a "falha de conexão".
+            // O subtotal de cada cartão continua indo, que é o que o
+            // backend usa para o total e para registrar a conferência.
             cartoes: r.cartoes.map(c => ({
               final: c.final, titular: c.titular, subtotal: c.subtotal,
               declarado: c.declarado, confere: c.confere,
-              lancamentos: c.lancamentos.map(l => ({
-                data: ParserBradesco.formatarDataLancamento(l),
-                descricao: l.descricao, parcela: l.parcela, valor: l.valor
-              }))
+              lancamentos: (cartoesConhecidos[String(c.final)] || {}).dono === 'primo'
+                ? c.lancamentos.map(l => ({
+                    data: ParserBradesco.formatarDataLancamento(l),
+                    descricao: l.descricao, parcela: l.parcela, valor: l.valor
+                  }))
+                : []
             }))
           }
         });

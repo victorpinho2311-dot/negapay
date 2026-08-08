@@ -81,6 +81,11 @@ const Auth = (() => {
 // ─────────────────────────────────────────
 const API = (() => {
 
+  // Acima deste tamanho o Apps Script rejeita a URL. Uma fatura com
+  // muitos lançamentos passava disso e o fetch falhava antes de sair —
+  // aparecia para o usuário como "falha de conexão".
+  const LIMITE_URL = 7000;
+
   async function post(body) {
     const url = window.NEGAPAY_CONFIG.apiUrl;
 
@@ -88,14 +93,21 @@ const API = (() => {
     const token = localStorage.getItem('negapay_token');
     if (token && !body.token) body.token = token;
 
-    // Codifica o body como parâmetro GET para evitar CORS preflight
-    const payload = encodeURIComponent(JSON.stringify(body));
-    const fullUrl = `${url}?payload=${payload}`;
+    const json = JSON.stringify(body);
+    const fullUrl = `${url}?payload=${encodeURIComponent(json)}`;
 
-    const res = await fetch(fullUrl, {
-      method: 'GET',
-      redirect: 'follow'
-    });
+    // GET com o payload na URL evita o preflight CORS que o Apps Script
+    // não responde. Quando o corpo não cabe na URL, POST com
+    // Content-Type text/plain também não dispara preflight (é um
+    // "simple request"), então serve de saída sem quebrar o CORS.
+    const res = fullUrl.length <= LIMITE_URL
+      ? await fetch(fullUrl, { method: 'GET', redirect: 'follow' })
+      : await fetch(url, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: json
+        });
 
     if (!res.ok) throw new Error('Erro na requisição: ' + res.status);
 
