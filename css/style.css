@@ -920,3 +920,29 @@ a { color: inherit; text-decoration: none; }
 .btn-sugerido {
   box-shadow: 0 0 0 2px var(--brand-blue);
 }
+
+/* ── Lote de faturas (admin) ───────────────────────────────── */
+.progresso-texto {
+  font-size: 0.8rem; color: var(--text-secondary);
+  text-align: center; padding: 0.5rem 0;
+}
+
+.fatura-lote {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 0.9rem 1rem; margin-bottom: 0.9rem; background: var(--surface);
+}
+.fatura-lote-erro { border-color: rgba(239,68,68,0.35); background: var(--danger-bg); }
+
+.fatura-lote-topo {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; cursor: pointer;
+}
+.fatura-lote-id { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.fatura-lote-status { font-size: 1.1rem; color: var(--success); flex-shrink: 0; }
+.fatura-lote-erro .fatura-lote-status { color: var(--danger); }
+.fatura-lote-valor { text-align: right; flex-shrink: 0; }
+.fatura-lote-valor .total-valor { font-size: 1.1rem; }
+.fatura-lote-abrir {
+  font-size: 0.72rem; color: var(--brand-blue); font-weight: 700;
+}
+.fatura-lote-detalhe { margin-top: 0.9rem; }

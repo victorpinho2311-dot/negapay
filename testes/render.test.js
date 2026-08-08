@@ -57,9 +57,9 @@ const arquivo = nome => {
 
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
-async function enviar(nome) {
-  Admin._selecionar({ target: { files: [arquivo(nome)] } });
-  await esperar(3000);
+async function enviar(...nomes) {
+  Admin._selecionar({ target: { files: nomes.map(arquivo) } });
+  await esperar(1200 * nomes.length + 1500);
   return window.document.getElementById('preview-section').innerHTML;
 }
 
@@ -81,7 +81,7 @@ const botaoPublicar = html => (html.match(/id="btn-publicar"[^>]*/) || [''])[0];
 
   // 2) Aeternum — cartao 9778 desconhecido, tem que travar
   const h2 = await enviar('aeternum-08.pdf');
-  assert.ok(h2.includes('Cartão novo nesta fatura'), 'nao avisou do cartao novo');
+  assert.ok(/Cart(ão|ões) novo?s? nesta fatura/.test(h2), 'nao avisou do cartao novo');
   assert.ok(h2.includes('9778'), 'nao listou o 9778');
   assert.ok(botaoPublicar(h2).includes('disabled'), 'publicar deveria estar BLOQUEADO');
   assert.ok(h2.includes('Defina os cartões acima'), 'texto do botao errado');
@@ -146,6 +146,34 @@ const botaoPublicar = html => (html.match(/id="btn-publicar"[^>]*/) || [''])[0];
   assert.ok(hp2.includes('05/08/2026') && hp2.includes('10/08/2026'),
             'nao mostrou os dois vencimentos diferentes');
   console.log('6) Primo — R$ 2.496,70 num card so, detalhado nas duas faturas (venc. 05/08 e 10/08)');
+
+  // 7) LOTE: as 5 faturas de uma vez
+  respostaAPI = async (body) => {
+    if (body.acao === 'listarCartoes') return { ok: true, cartoes: [
+      ...CARTOES_CONHECIDOS,
+      { final: '3268', titular: 'VICTOR P FERRAZ', dono: 'admin', apelido: '' },
+      { final: '2260', titular: 'VICTOR P FERRAZ', dono: 'admin', apelido: '' },
+      { final: '9778', titular: 'GETULIO FARIAS', dono: 'primo', apelido: '' },
+    ]};
+    if (body.acao === 'listarFaturas') return { ok: true, faturas: [] };
+    return { ok: true };
+  };
+  await Admin.init();
+  const hl = await enviar('infinite-05.pdf', 'infinite-06.pdf', 'infinite-07.pdf',
+                          'infinite-08.pdf', 'aeternum-08.pdf');
+
+  assert.ok(hl.includes('5 faturas lidas'), 'nao resumiu o lote');
+  assert.ok(hl.includes('todas conferem'), 'lote deveria conferir inteiro');
+  assert.ok(hl.includes('Publicar 5 faturas'), 'botao nao ofereceu publicar as 5');
+  for (const v of ['05/05/2026','05/06/2026','05/07/2026','05/08/2026','10/08/2026']) {
+    assert.ok(hl.includes(v), 'faltou a fatura que vence ' + v);
+  }
+  // total do primo nas 5: -2722,79 +1439,51 +2097,25 +2486,71 +9,99 = 3310,67
+  assert.ok(hl.includes('R$ 3.310,67'), 'total do lote errado');
+  // ordem cronologica: maio antes de agosto
+  assert.ok(hl.indexOf('05/05/2026') < hl.indexOf('10/08/2026'),
+            'lote fora de ordem cronologica');
+  console.log('7) Lote — 5 faturas numa tela so, em ordem, total R$ 3.310,67, publicar as 5');
 
   console.log('\nRESULTADO: telas renderizam com dados reais, sem erro de template');
 })().catch(e => { console.error('\nFALHOU:', e.message); console.error(e.stack); process.exit(1); });
